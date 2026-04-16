@@ -1,0 +1,97 @@
+{
+  "filename": "ArmStayGroupTest.java",
+  "report": {
+    "ticketKey": "EX-T1002",
+    "javaBlocks": [
+      { "index": 0, "report": "Panel is in DISARMED state", "rawText": "REPORT(\"Panel is in DISARMED state\");\n        panel.assertState(PanelState.DISARMED);", "lineNumber": 13 },
+      { "index": 1, "report": "User enters ARM STAY code on keypad", "rawText": "REPORT(\"User enters ARM STAY code on keypad\");\n        keypad.enterCode(config.getMasterCode());\n        keypad.pressArmStay();", "lineNumber": 16 },
+      { "index": 2, "report": "Panel transitions to ARMED STAY immediately", "rawText": "REPORT(\"Panel transitions to ARMED STAY immediately\");\n        panel.assertState(PanelState.ARMED_STAY);", "lineNumber": 20 },
+      { "index": 3, "report": "Interior motion sensors are bypassed", "rawText": "REPORT(\"Interior motion sensors are bypassed\");\n        sensorManager.assertBypassed(SensorType.INTERIOR_MOTION);", "lineNumber": 23 },
+      { "index": 4, "report": "Entry sensor triggers â€” entry delay countdown begins", "rawText": "REPORT(\"Entry sensor triggers â€” entry delay countdown begins\");\n        sensor.triggerEntry(SensorType.DOOR_WINDOW);\n        panel.assertEntryDelayActive();", "lineNumber": 28 }
+    ],
+    "zephyrSteps": [
+      {
+        "index": 0,
+        "description": "Verify panel is in DISARMED state before test begins",
+        "expectedResult": "Panel shows DISARMED status. No active alarms.",
+        "manualStep": "Verify panel is in DISARMED state",
+        "automationStep": "Assert panel state equals DISARMED",
+        "manualResult": "Panel shows DISARMED status",
+        "automationResult": "panel.assertState(PanelState.DISARMED) passes",
+        "requirements": ["Panel state is DISARMED"]
+      },
+      {
+        "index": 1,
+        "description": "User enters ARM STAY code at keypad",
+        "expectedResult": "Keypad accepts code. ARM STAY sequence initiated.",
+        "manualStep": "Enter master code and press ARM STAY",
+        "automationStep": "Enter master code and press ARM STAY button",
+        "manualResult": "Keypad accepts code",
+        "automationResult": "keypad.pressArmStay() completes without error",
+        "requirements": ["Master code accepted", "ARM STAY initiated"]
+      },
+      {
+        "index": 2,
+        "description": "Panel transitions to ARMED STAY immediately (no exit delay)",
+        "expectedResult": "Panel immediately shows ARMED STAY. No exit delay countdown.",
+        "manualStep": "Observe panel state after ARM STAY command",
+        "automationStep": "Assert panel state equals ARMED_STAY without waiting for countdown",
+        "manualResult": "Panel immediately shows ARMED STAY",
+        "automationResult": "panel.assertState(PanelState.ARMED_STAY) passes",
+        "requirements": ["State is ARMED_STAY", "No exit delay countdown shown"]
+      },
+      {
+        "index": 3,
+        "description": "Interior motion sensors are bypassed in ARM STAY mode",
+        "expectedResult": "Interior motion sensors show BYPASSED. Perimeter sensors remain active.",
+        "manualStep": "Check sensor status panel",
+        "automationStep": "Assert INTERIOR_MOTION sensor type is bypassed",
+        "manualResult": "Interior sensors show BYPASSED",
+        "automationResult": "sensorManager.assertBypassed(SensorType.INTERIOR_MOTION) passes",
+        "requirements": ["Interior sensors bypassed", "Perimeter sensors active"]
+      },
+      {
+        "index": 4,
+        "description": "Cancel ARM STAY before entry delay expires",
+        "expectedResult": "Panel returns to DISARMED. No alarm sounded.",
+        "manualStep": "Trigger a door sensor, then enter disarm code before countdown expires",
+        "automationStep": "Trigger entry sensor, assert countdown active, then disarm before expiry",
+        "manualResult": "Panel returns to DISARMED without sounding alarm",
+        "automationResult": "panel.disarmBeforeEntryDelay(code) passes; panel.assertState(DISARMED)",
+        "requirements": ["Entry delay countdown starts", "Disarm before expiry suppresses alarm", "Panel returns to DISARMED"]
+      },
+      {
+        "index": 5,
+        "description": "ARM STAY with exit delay panel setting enabled",
+        "expectedResult": "When exit delay is configured, ARM STAY shows a brief countdown before arming.",
+        "manualStep": "Enable exit delay in panel settings, then ARM STAY",
+        "automationStep": "Configure exit delay setting, arm stay, assert delay countdown visible before ARMED_STAY",
+        "manualResult": "Countdown appears before panel arms",
+        "automationResult": "panel.assertExitDelayActive() passes when setting enabled",
+        "requirements": ["Exit delay respected in stay mode when configured"]
+      }
+    ],
+    "expandedFrom": [],
+    "matches": [
+      { "status": "matched", "javaIndex": 0, "zephyrIndex": 0, "confidence": 97, "issue": null },
+      { "status": "matched", "javaIndex": 1, "zephyrIndex": 1, "confidence": 95, "issue": null },
+      { "status": "matched", "javaIndex": 2, "zephyrIndex": 2, "confidence": 94, "issue": null },
+      { "status": "matched", "javaIndex": 3, "zephyrIndex": 3, "confidence": 93, "issue": null },
+      { "status": "warning", "javaIndex": 4, "zephyrIndex": 4, "confidence": 55, "issue": "Java block 5 triggers the entry sensor and asserts the countdown is active, but never calls disarmBeforeEntryDelay(). The critical assertion â€” that disarming mid-countdown suppresses the alarm â€” is absent." },
+      { "status": "unmatched", "javaIndex": null, "zephyrIndex": 5, "confidence": 0, "issue": "No REPORT() block exercises ARM STAY with exit delay panel setting enabled. Test always uses default panel config." }
+    ],
+    "summary": {
+      "matched": 4,
+      "warnings": 1,
+      "unmatched": 1
+    },
+    "analysis": [
+      {
+        "zephyrIndex": 4,
+        "verdict": "true_gap",
+        "reasoning": "The automation covers the entry-delay trigger correctly but stops short of the disarm-before-expiry assertion. The missing call is panel.disarmBeforeEntryDelay(code) followed by assertState(DISARMED). Without it, a regression where mid-countdown disarm fails to suppress the alarm would pass the test entirely.",
+        "recommendation": "Add disarmBeforeEntryDelay() call and assertState(DISARMED) assertion after assertEntryDelayActive()."
+      }
+    ]
+  }
+}

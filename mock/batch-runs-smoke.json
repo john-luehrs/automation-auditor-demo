@@ -1,0 +1,31 @@
+{
+  "runs": [
+    {
+      "id": "2001",
+      "suiteName": "Arm Away - Group 01",
+      "date": "2026-04-14 14:35",
+      "passPerc": "100%",
+      "status": "passed",
+      "env": "demo-device-02",
+      "system": "SecurePanel X1"
+    },
+    {
+      "id": "2002",
+      "suiteName": "Arm Stay - Group 01",
+      "date": "2026-04-14 14:48",
+      "passPerc": "100%",
+      "status": "passed",
+      "env": "demo-device-02",
+      "system": "SecurePanel X1"
+    },
+    {
+      "id": "2003",
+      "suiteName": "Dismiss Alert - Group 01",
+      "date": "2026-04-14 15:01",
+      "passPerc": "100%",
+      "status": "passed",
+      "env": "demo-device-02",
+      "system": "SecurePanel X1"
+    }
+  ]
+}

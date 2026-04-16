@@ -1,0 +1,5 @@
+{
+  "zephyrBaseUrl": "https://jira.example.com/jira",
+  "githubRepo": "example-company/securepanel-automation",
+  "githubBranch": "main"
+}

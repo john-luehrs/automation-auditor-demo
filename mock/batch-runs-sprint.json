@@ -1,0 +1,40 @@
+{
+  "runs": [
+    {
+      "id": "1001",
+      "suiteName": "Arm Away - Group 01",
+      "date": "2026-04-15 09:05",
+      "passPerc": "60%",
+      "status": "failed",
+      "env": "demo-device-01",
+      "system": "SecurePanel X1"
+    },
+    {
+      "id": "1002",
+      "suiteName": "Arm Stay - Group 01",
+      "date": "2026-04-15 09:18",
+      "passPerc": "40%",
+      "status": "failed",
+      "env": "demo-device-02",
+      "system": "SecurePanel X1"
+    },
+    {
+      "id": "1003",
+      "suiteName": "Dismiss Alert - Group 01",
+      "date": "2026-04-15 09:35",
+      "passPerc": "80%",
+      "status": "failed",
+      "env": "demo-device-01",
+      "system": "SecurePanel X1"
+    },
+    {
+      "id": "1004",
+      "suiteName": "Door Window Sensor - Group 01",
+      "date": "2026-04-15 09:52",
+      "passPerc": "100%",
+      "status": "passed",
+      "env": "demo-device-03",
+      "system": "SecurePanel X1"
+    }
+  ]
+}

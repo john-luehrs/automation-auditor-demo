@@ -1,0 +1,17 @@
+{
+  "name": "ondemand-auditor-demo",
+  "version": "1.0.3",
+  "description": "AI-powered test coverage auditor — maps Java automation checkpoints to Zephyr test steps via LLM",
+  "main": "server.js",
+  "author": "john-luehrs",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0"
+  }
+}

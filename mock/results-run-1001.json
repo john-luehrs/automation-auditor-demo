@@ -1,0 +1,44 @@
+{
+  "stats": {
+    "total": 5,
+    "passed": 3,
+    "failed": 2
+  },
+  "results": [
+    {
+      "resultId": "10011",
+      "name": "Arm Away From Keypad - Default Exit Delay",
+      "result": "passed",
+      "date": "2026-04-15 09:05",
+      "duration": "28s"
+    },
+    {
+      "resultId": "10012",
+      "name": "Arm Away From Keypad - Short Exit Delay",
+      "result": "passed",
+      "date": "2026-04-15 09:06",
+      "duration": "14s"
+    },
+    {
+      "resultId": "10013",
+      "name": "Arm Away From App",
+      "result": "passed",
+      "date": "2026-04-15 09:07",
+      "duration": "31s"
+    },
+    {
+      "resultId": "10014",
+      "name": "Arm Away - Verify All Sensors Active",
+      "result": "failed",
+      "date": "2026-04-15 09:09",
+      "duration": "47s"
+    },
+    {
+      "resultId": "10015",
+      "name": "Arm Away - Remote Disarm From App",
+      "result": "failed",
+      "date": "2026-04-15 09:11",
+      "duration": "52s"
+    }
+  ]
+}

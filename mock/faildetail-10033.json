@@ -1,0 +1,17 @@
+{
+  "comment": "",
+  "scenario": "Dismiss Alert - Verify App Notification Cleared",
+  "scenarioId": "10033",
+  "jiraId": "EX-T1003",
+  "webClass": "tests.panels.arming.DismissAlertTest",
+  "result": "Failed",
+  "steps": [
+    { "text": "Call sensor.triggerAlarm(SensorType.DOOR_WINDOW)", "result": "passed", "timestamp": "09:40:01", "duration": "3.2s" },
+    { "text": "Assert alarm notification banner visible in app", "result": "passed", "timestamp": "09:40:04", "duration": "8.9s" },
+    { "text": "Call mobileApp.dismissAlert(masterCode)", "result": "passed", "timestamp": "09:40:13", "duration": "2.1s" },
+    { "text": "Assert panel state equals ARMED_STAY", "result": "passed", "timestamp": "09:40:15", "duration": "1.5s" },
+    { "text": "Assert alarm notification banner is gone", "result": "failed", "timestamp": "09:40:58", "duration": "43.0s" }
+  ],
+  "failMessage": "AssertionError: Expected notification banner to disappear within 30s but element '#alarm-banner' still visible after 43000ms.",
+  "failReason": "AssertionError: Expected notification banner to disappear within 30s but element '#alarm-banner' still visible after 43000ms.\n    at DismissAlertTest.testDismissAlertFromApp(DismissAlertTest.java:39)"
+}

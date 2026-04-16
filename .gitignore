@@ -1,0 +1,8 @@
+# dependencies
+node_modules/
+
+# credentials — never commit
+.env
+
+# disk cache from folder audit scans
+cache/

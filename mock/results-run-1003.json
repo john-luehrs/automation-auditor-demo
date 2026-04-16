@@ -1,0 +1,37 @@
+{
+  "stats": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1
+  },
+  "results": [
+    {
+      "resultId": "10031",
+      "name": "Dismiss Alert - Door Sensor Trigger",
+      "result": "passed",
+      "date": "2026-04-15 09:35",
+      "duration": "38s"
+    },
+    {
+      "resultId": "10032",
+      "name": "Dismiss Alert - Window Sensor Trigger",
+      "result": "passed",
+      "date": "2026-04-15 09:37",
+      "duration": "41s"
+    },
+    {
+      "resultId": "10033",
+      "name": "Dismiss Alert - Verify App Notification Cleared",
+      "result": "failed",
+      "date": "2026-04-15 09:40",
+      "duration": "58s"
+    },
+    {
+      "resultId": "10034",
+      "name": "Dismiss Alert - Re-arm After Dismissal",
+      "result": "passed",
+      "date": "2026-04-15 09:42",
+      "duration": "35s"
+    }
+  ]
+}

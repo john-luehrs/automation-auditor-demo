@@ -1,0 +1,73 @@
+{
+  "filename": "ArmAwayGroupTest.java",
+  "report": {
+    "ticketKey": "EX-T1001",
+    "javaBlocks": [
+      { "index": 0, "report": "Panel is in DISARMED state", "rawText": "REPORT(\"Panel is in DISARMED state\");\n        panel.assertState(PanelState.DISARMED);", "lineNumber": 12 },
+      { "index": 1, "report": "No active alarms on panel", "rawText": "REPORT(\"No active alarms on panel\");\n        alarmManager.assertNoActiveAlarms();", "lineNumber": 15 },
+      { "index": 2, "report": "Master code entered at keypad", "rawText": "REPORT(\"Master code entered at keypad\");\n        keypad.enterCode(config.getMasterCode());", "lineNumber": 19 },
+      { "index": 3, "report": "ARM AWAY sequence initiated", "rawText": "REPORT(\"ARM AWAY sequence initiated\");\n        keypad.pressArmAway();", "lineNumber": 22 },
+      { "index": 4, "report": "Exit delay countdown is visible", "rawText": "REPORT(\"Exit delay countdown is visible\");\n        panel.assertExitDelayActive();\n        panel.waitForExitDelay(config.getExitDelaySeconds());", "lineNumber": 26 },
+      { "index": 5, "report": "Panel transitions to ARMED AWAY", "rawText": "REPORT(\"Panel transitions to ARMED AWAY\");\n        panel.assertState(PanelState.ARMED_AWAY);", "lineNumber": 31 },
+      { "index": 6, "report": "All motion sensors are active", "rawText": "REPORT(\"All motion sensors are active\");\n        sensorManager.assertAllActive(SensorType.MOTION);", "lineNumber": 34 }
+    ],
+    "zephyrSteps": [
+      {
+        "index": 0,
+        "description": "Verify system is in DISARMED state before test begins",
+        "expectedResult": "Panel dashboard shows DISARMED. No active alarms.",
+        "manualStep": "Verify system is in DISARMED state before test begins",
+        "automationStep": "Assert panel state equals DISARMED",
+        "manualResult": "Panel dashboard shows DISARMED. No active alarms.",
+        "automationResult": "panel.assertState(PanelState.DISARMED) passes",
+        "requirements": ["Panel state is DISARMED", "No active alarms present"]
+      },
+      {
+        "index": 1,
+        "description": "User enters ARM AWAY code at keypad",
+        "expectedResult": "Keypad accepts code, ARM AWAY sequence initiated",
+        "manualStep": "User enters ARM AWAY code at keypad",
+        "automationStep": "Enter master code and press ARM AWAY button",
+        "manualResult": "Keypad accepts code, ARM AWAY sequence initiated",
+        "automationResult": "keypad.pressArmAway() completes without error",
+        "requirements": ["Master code accepted", "ARM AWAY mode initiated"]
+      },
+      {
+        "index": 2,
+        "description": "Exit delay countdown is displayed",
+        "expectedResult": "Panel shows exit delay countdown timer. Audible beep every second.",
+        "manualStep": "Exit delay countdown is displayed",
+        "automationStep": "Assert exit delay is active and wait for completion",
+        "manualResult": "Panel shows exit delay countdown timer",
+        "automationResult": "panel.assertExitDelayActive() passes",
+        "requirements": ["Exit delay countdown visible", "Audible beep active"]
+      },
+      {
+        "index": 3,
+        "description": "Panel transitions to ARMED AWAY after exit delay completes",
+        "expectedResult": "Panel state changes to ARMED AWAY. All sensors active.",
+        "manualStep": "Panel transitions to ARMED AWAY after exit delay completes",
+        "automationStep": "Assert panel state equals ARMED_AWAY",
+        "manualResult": "Panel state changes to ARMED AWAY",
+        "automationResult": "panel.assertState(PanelState.ARMED_AWAY) passes",
+        "requirements": ["State is ARMED_AWAY", "All motion sensors active"]
+      }
+    ],
+    "expandedFrom": [],
+    "matches": [
+      { "status": "matched", "javaIndex": 0, "zephyrIndex": 0, "confidence": 97, "issue": null },
+      { "status": "matched", "javaIndex": 1, "zephyrIndex": 0, "confidence": 94, "issue": null },
+      { "status": "matched", "javaIndex": 2, "zephyrIndex": 1, "confidence": 95, "issue": null },
+      { "status": "matched", "javaIndex": 3, "zephyrIndex": 1, "confidence": 96, "issue": null },
+      { "status": "matched", "javaIndex": 4, "zephyrIndex": 2, "confidence": 91, "issue": null },
+      { "status": "matched", "javaIndex": 5, "zephyrIndex": 3, "confidence": 98, "issue": null },
+      { "status": "matched", "javaIndex": 6, "zephyrIndex": 3, "confidence": 95, "issue": null }
+    ],
+    "summary": {
+      "matched": 4,
+      "warnings": 0,
+      "unmatched": 0
+    },
+    "analysis": null
+  }
+}

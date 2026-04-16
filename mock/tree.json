@@ -1,0 +1,32 @@
+{
+  "totalFiles": 3,
+  "tree": [
+    {
+      "type": "folder",
+      "name": "arming",
+      "children": [
+        {
+          "type": "file",
+          "name": "ArmAwayGroupTest.java",
+          "filename": "ArmAwayGroupTest.java",
+          "path": "src/test/java/tests/panels/arming/ArmAwayGroupTest.java",
+          "ticketKey": "EX-T1001"
+        },
+        {
+          "type": "file",
+          "name": "ArmStayGroupTest.java",
+          "filename": "ArmStayGroupTest.java",
+          "path": "src/test/java/tests/panels/arming/ArmStayGroupTest.java",
+          "ticketKey": "EX-T1002"
+        },
+        {
+          "type": "file",
+          "name": "DismissAlertTest.java",
+          "filename": "DismissAlertTest.java",
+          "path": "src/test/java/tests/panels/arming/DismissAlertTest.java",
+          "ticketKey": "EX-T1003"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "filename": "DismissAlertTest.java",
+  "report": {
+    "ticketKey": "EX-T1003",
+    "javaBlocks": [
+      { "index": 0, "report": "Door/window sensor triggers an alarm", "rawText": "REPORT(\"Door/window sensor triggers an alarm\");\n        sensor.triggerAlarm(SensorType.DOOR_WINDOW);\n        panel.assertState(PanelState.ALARM_ACTIVE);", "lineNumber": 12 },
+      { "index": 1, "report": "Mobile app displays active alarm notification", "rawText": "REPORT(\"Mobile app displays active alarm notification\");\n        mobileApp.assertAlarmNotificationVisible();", "lineNumber": 17 },
+      { "index": 2, "report": "User dismisses alert from mobile app", "rawText": "REPORT(\"User dismisses alert from mobile app\");\n        mobileApp.dismissAlert(config.getMasterCode());", "lineNumber": 21 },
+      { "index": 3, "report": "Panel returns to ARMED STAY after dismissal", "rawText": "REPORT(\"Panel returns to ARMED STAY after dismissal\");\n        panel.assertState(PanelState.ARMED_STAY);", "lineNumber": 25 },
+      { "index": 4, "report": "Mobile app confirms alert is dismissed", "rawText": "REPORT(\"Mobile app confirms alert is dismissed\");\n        mobileApp.assertAlarmNotificationGone();", "lineNumber": 29 }
+    ],
+    "zephyrSteps": [
+      {
+        "index": 0,
+        "description": "Trigger a door or window sensor to activate alarm",
+        "expectedResult": "Panel transitions to ALARM state within 30 seconds",
+        "manualStep": "Open door/window sensor while system is armed",
+        "automationStep": "Call sensor.triggerAlarm(SensorType.DOOR_WINDOW)",
+        "manualResult": "Panel transitions to ALARM state",
+        "automationResult": "panel.assertState(PanelState.ALARM_ACTIVE) passes",
+        "requirements": ["ALARM_ACTIVE state reached", "Within 30 second timeout"]
+      },
+      {
+        "index": 1,
+        "description": "Mobile app shows active alarm notification banner",
+        "expectedResult": "Push notification delivered and in-app banner displayed within 10 seconds",
+        "manualStep": "Check mobile app for alarm notification",
+        "automationStep": "Assert alarm notification banner is visible in app",
+        "manualResult": "Push notification and in-app banner visible",
+        "automationResult": "mobileApp.assertAlarmNotificationVisible() passes",
+        "requirements": ["Notification within 10s", "Banner displayed"]
+      },
+      {
+        "index": 2,
+        "description": "User dismisses alert by entering master code in app",
+        "expectedResult": "Alert dismissed, panel enters grace period before returning to armed state",
+        "manualStep": "Enter master code in dismiss alert dialog",
+        "automationStep": "Call mobileApp.dismissAlert(masterCode)",
+        "manualResult": "Alert dismissed successfully",
+        "automationResult": "mobileApp.dismissAlert(code) returns without error",
+        "requirements": ["Alert accepted", "Grace period begins"]
+      },
+      {
+        "index": 3,
+        "description": "Panel returns to prior armed state after alert is dismissed",
+        "expectedResult": "Panel shows ARMED STAY status. No alarm sound.",
+        "manualStep": "Observe panel status after dismissal",
+        "automationStep": "Assert panel state equals ARMED_STAY",
+        "manualResult": "Panel returns to ARMED STAY",
+        "automationResult": "panel.assertState(PanelState.ARMED_STAY) passes",
+        "requirements": ["State is ARMED_STAY", "Alarm horn silenced"]
+      },
+      {
+        "index": 4,
+        "description": "Mobile app notification clears and shows normal armed status",
+        "expectedResult": "Alarm banner dismissed. App shows green ARMED STAY indicator.",
+        "manualStep": "Verify app returns to normal armed display",
+        "automationStep": "Assert notification gone, assert armed indicator visible",
+        "manualResult": "App shows normal ARMED STAY status",
+        "automationResult": "mobileApp.assertAlarmNotificationGone() passes",
+        "requirements": ["Notification cleared", "Normal armed display"]
+      }
+    ],
+    "expandedFrom": [],
+    "matches": [
+      { "status": "matched", "javaIndex": 0, "zephyrIndex": 0, "confidence": 0.92, "issue": null },
+      { "status": "warning", "javaIndex": 1, "zephyrIndex": 1, "confidence": 0.61, "issue": "Automation asserts notification visible but does not verify the 10-second delivery window. Tests pass when notification arrives at 8s but could miss a timing regression at 12s." },
+      { "status": "matched", "javaIndex": 2, "zephyrIndex": 2, "confidence": 0.90, "issue": null },
+      { "status": "matched", "javaIndex": 3, "zephyrIndex": 3, "confidence": 0.88, "issue": null },
+      { "status": "warning", "javaIndex": 4, "zephyrIndex": 4, "confidence": 0.58, "issue": "Step asserts notification is gone but does not assert the ARMED STAY indicator is visible separately. A bug could hide the indicator while still passing the notification-gone check." }
+    ],
+    "summary": {
+      "matched": 3,
+      "warnings": 2,
+      "unmatched": 0
+    },
+    "analysis": [
+      {
+        "zephyrIndex": 1,
+        "verdict": "inconclusive",
+        "reasoning": "The automation covers the notification delivery path but omits the 10-second SLA required by the Zephyr step. The assertion is structurally correct but under-constrained — it would pass on a system with a 30-second notification delay. Whether this constitutes a real coverage gap depends on whether timing SLAs are tracked separately in monitoring. Recommend adding a timeout assertion: assertAlarmNotificationVisible(maxSeconds=10).",
+        "recommendation": "Add explicit timeout parameter to assertAlarmNotificationVisible() call"
+      },
+      {
+        "zephyrIndex": 4,
+        "verdict": "inconclusive",
+        "reasoning": "Step 5 requires two distinct assertions: (1) alarm banner is gone, and (2) the normal armed state indicator is visible. The automation only checks one. This could produce a false positive if the app crashes or hangs in a blank state after dismissal. The risk is low in practice because other assertions would likely catch a full crash, but it represents a gap in fine-grained UI state verification.",
+        "recommendation": "Add mobileApp.assertArmedStateIndicatorVisible() after assertAlarmNotificationGone()"
+      }
+    ]
+  }
+}

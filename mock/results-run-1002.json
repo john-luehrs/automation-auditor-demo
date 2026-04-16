@@ -1,0 +1,44 @@
+{
+  "stats": {
+    "total": 5,
+    "passed": 2,
+    "failed": 3
+  },
+  "results": [
+    {
+      "resultId": "10021",
+      "name": "Arm Stay From Keypad - Default",
+      "result": "passed",
+      "date": "2026-04-15 09:18",
+      "duration": "22s"
+    },
+    {
+      "resultId": "10022",
+      "name": "Arm Stay - Interior Sensors Bypassed",
+      "result": "passed",
+      "date": "2026-04-15 09:19",
+      "duration": "25s"
+    },
+    {
+      "resultId": "10023",
+      "name": "Arm Stay - Cancel Before Entry Delay",
+      "result": "failed",
+      "date": "2026-04-15 09:21",
+      "duration": "63s"
+    },
+    {
+      "resultId": "10024",
+      "name": "Arm Stay - With Exit Delay Setting Enabled",
+      "result": "failed",
+      "date": "2026-04-15 09:23",
+      "duration": "71s"
+    },
+    {
+      "resultId": "10025",
+      "name": "Arm Stay - Verify Perimeter Sensors Active",
+      "result": "failed",
+      "date": "2026-04-15 09:26",
+      "duration": "45s"
+    }
+  ]
+}

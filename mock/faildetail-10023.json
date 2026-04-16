@@ -1,0 +1,17 @@
+{
+  "comment": "",
+  "scenario": "Arm Stay - Cancel Before Entry Delay",
+  "scenarioId": "10023",
+  "jiraId": "EX-T1002",
+  "webClass": "tests.panels.arming.ArmStayGroupTest",
+  "result": "Failed",
+  "steps": [
+    { "text": "Assert panel state equals DISARMED", "result": "passed", "timestamp": "09:21:01", "duration": "0.9s" },
+    { "text": "Enter master code and press ARM STAY button", "result": "passed", "timestamp": "09:21:02", "duration": "1.8s" },
+    { "text": "Assert panel state equals ARMED_STAY", "result": "passed", "timestamp": "09:21:04", "duration": "1.2s" },
+    { "text": "Trigger entry sensor to start entry delay", "result": "passed", "timestamp": "09:21:06", "duration": "2.0s" },
+    { "text": "Enter disarm code before entry delay expires", "result": "failed", "timestamp": "09:22:09", "duration": "63.0s" }
+  ],
+  "failMessage": "NoSuchElementException: Keypad input field not found during entry delay countdown. Element '#keypad-input' was not present in DOM after 60s.",
+  "failReason": "NoSuchElementException: Keypad input field not found during entry delay countdown. Element '#keypad-input' was not present in DOM after 60s.\n    at ArmStayGroupTest.testCancelBeforeEntryDelay(ArmStayGroupTest.java:81)"
+}

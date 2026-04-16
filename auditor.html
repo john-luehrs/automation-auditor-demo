@@ -1,0 +1,2998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OnDemand Auditor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: #d4d4d4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: #3c3c3c;
+      border-bottom: 1px solid #444;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .toolbar h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+    input[type="text"] {
+      background: #3c3c3c;
+      color: #ccc;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 4px 8px;
+      font-size: 12px;
+      min-width: 140px;
+    }
+    input[type="text"]:focus { outline: 1px solid #007acc; }
+
+    button {
+      background: #0e639c;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 5px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover { background: #1177bb; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-secondary {
+      background: #3a3d41;
+      color: #ccc;
+    }
+    .btn-secondary:hover { background: #45494e; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      background: #007acc;
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 14px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .status-bar .badge { font-weight: 700; }
+    .badge-green  { color: #4ec94e; }
+    .badge-yellow { color: #f0d060; }
+    .badge-red    { color: #f07070; }
+
+    /* ── File Browser ── */
+    #browser-panel {
+      display: flex;
+      flex-direction: column;
+      background: #252526;
+      border-right: 1px solid #444;
+      width: 260px;
+      min-width: 160px;
+      max-width: 600px;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    #browser-panel.collapsed { width: 0; border: none; }
+    #browser-resize-handle {
+      width: 5px; flex-shrink: 0; cursor: col-resize;
+      background: transparent; z-index: 10;
+    }
+    #browser-resize-handle:hover, #browser-resize-handle.dragging { background: #007acc; }
+
+    .browser-header {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #bbb;
+      background: #2d2d2d;
+      border-bottom: 1px solid #444;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .browser-search { padding: 6px 8px; border-bottom: 1px solid #444; flex-shrink: 0; }
+    .browser-search input { width: 100%; min-width: unset; }
+    #file-tree { overflow-y: auto; flex: 1; padding: 4px 0; }
+
+    .tree-folder-label { position: relative; }
+    .tree-folder-label:hover .run-folder-btn { display: inline-flex; }
+    .run-folder-btn {
+      display: none; margin-left: 6px; align-items: center;
+      font-size: 9px; padding: 1px 6px; border-radius: 8px;
+      background: #0e639c; color: #fff; border: none; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .run-folder-btn:hover { background: #1177bb; }
+    /* Folder checkbox for multi-select */
+    .folder-check {
+      width: 13px; height: 13px; margin-right: 5px; flex-shrink: 0; cursor: pointer;
+      accent-color: #0e639c;
+    }
+    /* Multi-folder selection bar */
+    #multi-folder-bar {
+      display: none; align-items: center; gap: 8px; padding: 6px 10px;
+      background: #0e639c22; border-bottom: 1px solid #0e639c55; flex-shrink: 0;
+    }
+    #multi-folder-bar.visible { display: flex; }
+    #multi-folder-count { font-size: 11px; color: #6ab0f5; flex: 1; }
+    #multi-folder-run  { font-size: 10px; padding: 3px 10px; }
+    #multi-folder-clear { font-size: 10px; padding: 3px 8px; background: transparent;
+                          color: #888; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+    #multi-folder-clear:hover { color: #ccc; border-color: #888; }
+
+    /* ── Folder audit panel ── */
+    #folder-audit-panel {
+      position: fixed; top: 0; right: -100vw; width: min(90vw, 1040px); height: 100vh;
+      background: #1e1e1e; border-left: 1px solid #444; z-index: 500;
+      display: flex; flex-direction: column; transition: right 0.25s ease;
+      box-shadow: -4px 0 20px #0008;
+    }
+    #folder-audit-panel.open { right: 0; }
+    .fp-header {
+      padding: 12px 16px; background: #2d2d2d; border-bottom: 1px solid #444;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .fp-header h3 { margin: 0; font-size: 13px; color: #ccc; font-weight: 700; }
+    .fp-close { cursor: pointer; font-size: 16px; color: #888; padding: 4px 8px; }
+    .fp-close:hover { color: #fff; }
+    .fp-progress-bar-wrap {
+      padding: 10px 16px; background: #252525; border-bottom: 1px solid #333; flex-shrink: 0;
+    }
+    .fp-progress-track {
+      height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+    }
+    .fp-progress-fill { height: 100%; background: #0e639c; border-radius: 3px; transition: width 0.2s; width: 0%; }
+    .fp-progress-label { font-size: 10px; color: #888; }
+    .fp-totals {
+      display: flex; gap: 16px; padding: 8px 16px; background: #252525;
+      border-bottom: 1px solid #333; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .fp-total-item { font-size: 11px; color: #888; }
+    .fp-total-item b { font-size: 13px; }
+    .fp-total-item.green b { color: #4ec94e; }
+    .fp-total-item.yellow b { color: #f0c040; }
+    .fp-total-item.red b { color: #e05050; }
+    .fp-totals {
+      display: flex; gap: 16px; padding: 8px 16px; background: #252525;
+      border-bottom: 1px solid #333; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .fp-total-item { font-size: 11px; color: #888; }
+    .fp-total-item b { font-size: 13px; }
+    .fp-total-item.green b { color: #4ec94e; }
+    .fp-total-item.yellow b { color: #f0c040; }
+    .fp-total-item.red b { color: #e05050; }
+    .fp-results { overflow-y: auto; flex: 1; padding: 8px 0; }
+    .fp-row {
+      display: grid; grid-template-columns: 3fr 100px 60px 60px 70px 75px 80px;
+      align-items: center; gap: 8px;
+      padding: 5px 20px; border-bottom: 1px solid #2a2a2a; font-size: 12px;
+      cursor: pointer;
+    }
+    .fp-row:hover { background: #2a2d2e; }
+    .fp-row .fp-name { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fp-row .fp-key  { font-size: 11px; color: #6ab0f5; }
+    .fp-row .fp-cov  { font-weight: 700; text-align: right; font-size: 13px; }
+    .fp-row .fp-num  { text-align: right; font-size: 12px; }
+    .fp-row .fp-adj  { font-weight: 700; text-align: right; font-size: 13px; color: #555; font-style: italic; }
+    .fp-row.fp-err   { opacity: .5; cursor: default; }
+    .fp-col-header {
+      display: grid; grid-template-columns: 3fr 100px 60px 60px 70px 75px 80px;
+      gap: 8px; padding: 4px 20px; font-size: 10px; color: #555;
+      text-transform: uppercase; letter-spacing: .05em; flex-shrink: 0;
+      border-bottom: 1px solid #333;
+    }
+    .fp-col-header span:not(:first-child) { text-align: right; }
+    .fp-gate {
+      padding: 14px 16px; border-bottom: 1px solid #2f2f2f;
+      background: linear-gradient(180deg, #1f2430 0%, #191c24 100%);
+      flex-shrink: 0;
+    }
+    .fp-gate-title { font-size: 15px; font-weight: 700; color: #e6edf7; margin-bottom: 6px; }
+    .fp-gate-copy { font-size: 12px; line-height: 1.45; color: #aab4c4; margin-bottom: 10px; }
+    .fp-gate textarea {
+      width: 100%; box-sizing: border-box; min-height: 96px; resize: vertical;
+      background: #11151d; color: #d7dce5; border: 1px solid #3b4352; border-radius: 4px;
+      padding: 9px 10px; font-size: 12px; font-family: inherit;
+    }
+    .fp-gate-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .fp-gate-actions button {
+      padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;
+      border: 1px solid #3b4352; background: #273246; color: #dce7f7;
+    }
+    .fp-gate-actions button.secondary { background: transparent; color: #9ba7bb; }
+    .fp-export-bar {
+      padding: 8px 16px; background: #252525; border-top: 1px solid #333;
+      flex-shrink: 0; display: none;
+    }
+    .fp-export-bar button {
+      font-size: 11px; padding: 4px 14px; background: #0e639c;
+      color: #fff; border: none; border-radius: 4px; cursor: pointer;
+    }
+    .fp-export-bar button:hover { background: #1177bb; }
+    .tree-folder-label .icon { font-size: 10px; transition: transform 0.15s; }
+    .tree-folder-label.open .icon { transform: rotate(90deg); }
+    .tree-folder-children { display: none; padding-left: 14px; }
+    .tree-folder-children.open { display: block; }
+    .file-check { flex-shrink: 0; margin-right: 4px; pointer-events: none; cursor: default; }
+
+    .tree-file {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 12px; font-size: 12px; cursor: pointer;
+      color: #ccc; border-radius: 2px; user-select: none; min-width: 0;
+    }
+    .tree-file:hover { background: #2a2d2e; }
+    .tree-file.selected { background: #094771; color: #fff; }
+    .tree-file > span:not(.ticket-badge):not(.no-ticket) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .tree-file .ticket-badge {
+      margin-left: auto; font-size: 9px; padding: 1px 5px;
+      border-radius: 8px; background: #0e639c55; color: #6ab0f5; white-space: nowrap;
+    }
+    .tree-file .no-ticket { margin-left: auto; font-size: 9px; color: #888; }
+
+    /* ── Main area ── */
+    .main-area { display: flex; flex: 1; overflow: hidden; }
+    .content-area { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
+
+    .placeholder {
+      display: flex; flex: 1; align-items: center;
+      justify-content: center; flex-direction: column;
+      gap: 12px; color: #666; font-size: 13px;
+    }
+    .placeholder .icon-large { font-size: 48px; opacity: .3; }
+
+    /* ── Layout ── */
+    .audit-wrapper { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    #folder-recall-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 5px 10px; background: #252526; border-bottom: 1px solid #383838;
+      font-size: 11px; color: #888; flex-shrink: 0;
+    }
+    #folder-recall-btn {
+      margin-left: auto; padding: 2px 10px; font-size: 11px; cursor: pointer;
+      background: #2d5a8e; color: #cce0ff; border: 1px solid #3b71b0; border-radius: 3px;
+    }
+    #folder-recall-btn:hover { background: #3a6fa8; }
+    .paired-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      flex-shrink: 0;
+      border-bottom: 1px solid #444;
+    }
+    .paired-header .ph-cell {
+      background: #2d2d2d; padding: 6px 14px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #aaa;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .paired-header .ph-cell:first-child { border-right: 1px solid #444; }
+    .ph-key { font-size: 13px; font-weight: 700; color: #7dcfff; text-transform: none; letter-spacing: 0; }
+
+    .paired-scroll { overflow-y: auto; flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+
+    /* Each row = one Zephyr step + its matched Java block side by side */
+    .pair-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      align-items: stretch;
+    }
+    .pair-cell {
+      border-radius: 5px; border: 1px solid transparent;
+      padding: 8px 12px; position: relative; min-height: 52px;
+      transition: box-shadow 0.12s;
+    }
+    .pair-cell:hover { box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+    .pair-cell.matched   { background: #1a3a1a; border-color: #2e5e2e; }
+    .pair-cell.warning   { background: #332a00; border-color: #6e5e00; }
+    .pair-cell.unmatched { background: #3a1010; border-color: #6e2020; }
+    .pair-cell.setup     { background: #222222; border-color: #404040; opacity:.7; }
+    /* FEEDBACK-LOOP: warnings cleared by analysis — lighter green, same hue family as matched */
+    .pair-cell.fp-cleared { background: #1e4a20; border-color: #3a8040; }
+    .pair-cell.empty     { background: #1a1a1a; border: 1px dashed #333; display: flex; align-items: center; justify-content: center; color: #444; font-size: 11px; font-style: italic; }
+    .pair-cell.highlighted { outline: 2px solid #fff6; }
+
+    .cell-label  { font-size: 11px; font-weight: 700; letter-spacing: .05em; opacity: .55; margin-bottom: 3px; }
+    .cell-title  { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 3px; white-space: pre-wrap; }
+    .pair-cell.warning .cell-title { font-weight: 700; }
+    .cell-detail { font-size: 13px; color: #aaa; line-height: 1.45; white-space: pre-wrap; }
+    /* ── Manual / Automation section labels inside a Zephyr step cell ── */
+    .step-section          { margin-top: 6px; }
+    .step-section-label    { font-size: 10px; font-weight: 700; letter-spacing: .07em;
+                             text-transform: uppercase; margin-bottom: 3px; opacity: .45; }
+    .step-section.manual   .step-section-label { color: #888; }
+    .step-section.auto     .step-section-label { color: #6ab0f5; opacity: .7; }
+    .step-section.manual   .step-section-body  { font-size: 12px; color: #777; font-style: italic; line-height: 1.45; white-space: pre-wrap; }
+    .step-section.auto     .step-section-body  { font-size: 14px; font-weight: 600; color: #ccc; line-height: 1.4; white-space: pre-wrap; }
+    .step-divider          { border: none; border-top: 1px solid #ffffff0e; margin: 6px 0 4px; }
+    /* ── Per-requirement highlighting (Automated vs OD mode) ── */
+    .cell-reqs   { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
+    .req-item    { font-size: 12px; line-height: 1.45; padding: 2px 4px 2px 0; display: flex; gap: 5px; align-items: baseline; border-radius: 3px; }
+    .req-bullet  { font-size: 9px; flex-shrink: 0; opacity: .4; }
+    .req-ok      { color: #888; }
+    .req-miss    { color: #e06060; }
+    .req-warn    { color: #f0d060; font-weight: 700; cursor: help; }
+    .req-warn:hover { color: #ffe080; }
+    /* FEEDBACK-LOOP: false_positive/alias warnings — bold lighter green to indicate "reviewed & cleared" */
+    .req-warn-fp  { color: #6abf6a; font-weight: 700; cursor: help; }
+    .req-warn-fp:hover { color: #8fd98f; }
+    /* Superscript cross-reference numbers linking step bullets to summary rows */
+    /* Uses position:relative instead of vertical-align:super so it works inside flex containers */
+    .warn-num         { font-size: 9px; font-weight: 700; position: relative; top: -0.45em; line-height: 0;
+                        color: #aaa; margin-left: 3px; font-style: normal; flex-shrink: 0; }
+    .warn-num-summary { font-size: 10px; color: #aaa; margin-right: 6px; min-width: 14px;
+                        display: inline-block; text-align: right; flex-shrink: 0; }
+    @keyframes req-flash { 0% { background: rgba(240,208,96,.3); } 100% { background: transparent; } }
+    .req-flash   { animation: req-flash .65s ease-out; }
+    .cell-asserts {
+      margin-top: 5px; font-size: 10px; color: #7a9cbf;
+      font-family: monospace; border-top: 1px solid #ffffff15; padding-top: 4px;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .cell-issue {
+      margin-top: 5px; font-size: 10px; padding: 3px 8px; border-radius: 3px;
+      background: #5e3a0055; color: #f0c060; border: 1px solid #6e4e00;
+    }
+    .cell-issue-links { display: flex; flex-direction: column; gap: 4px; margin-top: 7px; }
+    .cell-issue-link {
+      display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+      padding: 0; border: none; background: none; cursor: pointer;
+      font-size: 11px; line-height: 1.35; text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .cell-issue-link.warning { color: #f0c060; }
+    .cell-issue-link.unmatched { color: #f07070; }
+    .cell-issue-link:hover { filter: brightness(1.08); }
+    .cell-issue-link:focus { outline: 1px solid #6ab0f5; outline-offset: 2px; border-radius: 2px; }
+    .java-sub-block.issue-target { box-shadow: 0 0 0 2px #7ab8f599; border-radius: 4px; }
+    .cell-conf {
+      position: absolute; top: 6px; right: 8px;
+      font-size: 10px; color: #666;
+    }
+
+    /* ── Summary pane ── */
+    #summary-pane {
+      flex-shrink: 0; height: 180px; display: none;
+      border-top: 2px solid #555; background: #1a1a2e;
+      flex-direction: column;
+    }
+    #summary-pane-cols {
+      display: flex; flex-direction: row; flex: 1; overflow: hidden;
+    }
+    #summary-verdict-col {
+      flex-shrink: 0; width: 190px; padding: 10px 14px;
+      border-right: 1px solid #2a2a3a; display: flex; flex-direction: column; justify-content: center;
+    }
+    #summary-detail-col {
+      flex: 1; overflow-y: auto; padding: 10px 14px;
+    }
+    #summary-pane-body { display: flex; flex-direction: column; gap: 8px; }
+    .summary-section { }
+    .summary-section h3 {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #aaa; margin-bottom: 6px;
+      border-bottom: 1px solid #333; padding-bottom: 3px;
+    }
+    .summary-row { display: flex; gap: 6px; margin-bottom: 4px; align-items: flex-start; font-size: 11px; }
+    .summary-row .s-icon { flex-shrink: 0; width: 14px; text-align: center; }
+    .summary-row .s-text { color: #ccc; line-height: 1.4; }
+    .analysis-pattern { background: #0e1422; border: 1px solid #1e3a5a; border-radius: 4px;
+      padding: 6px 10px; margin-bottom: 7px; font-size: 11px; color: #b0c8e8; line-height: 1.5; }
+    .analysis-pattern strong { color: #6ab0f5; }
+    .analysis-row { display: flex; gap: 8px; margin-bottom: 5px; align-items: flex-start; font-size: 11px; }
+    .analysis-badge { flex-shrink: 0; font-size: 9px; font-weight: 700; border-radius: 3px;
+      padding: 1px 5px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+    .badge-genuine      { background: rgba(240,112,112,.18); color: #f07070; border: 1px solid rgba(240,112,112,.35); }
+    .badge-customer     { background: rgba(240,176,64,.18);  color: #f0b040; border: 1px solid rgba(240,176,64,.35); }
+    .badge-enum         { background: rgba(160,120,240,.18); color: #b090f0; border: 1px solid rgba(160,120,240,.35); }
+    .badge-alias        { background: rgba(100,180,100,.18); color: #70c070; border: 1px solid rgba(100,180,100,.35); }
+    .badge-false_positive { background: rgba(100,180,100,.18); color: #70c070; border: 1px solid rgba(100,180,100,.35); }
+    .badge-ambiguous    { background: rgba(160,160,160,.12); color: #999;    border: 1px solid rgba(160,160,160,.25); }
+    .summary-verdict-cov {
+      font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px;
+    }
+    .summary-verdict-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      color: #aaa; margin-bottom: 10px;
+    }
+    .summary-verdict-counts { display: flex; flex-direction: column; gap: 3px; }
+    .summary-verdict-counts span { font-size: 11px; color: #ccc; }
+    .summary-verdict-text {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a2a3a;
+      font-size: 10px; color: #888; line-height: 1.5;
+    }
+    .summary-verdict {
+      flex: 2; min-width: 280px; background: #0e1a2a; border-radius: 4px;
+      padding: 8px 14px; font-size: 11px; color: #b0c8e8;
+    }
+    .summary-verdict strong { color: #6ab0f5; }
+    .pane-header {
+      background: #2d2d2d; border-bottom: 1px solid #444;
+      padding: 6px 14px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: #aaa;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .pane-header .key-label { font-size: 12px; font-weight: 600; color: #6ab0f5; text-transform: none; letter-spacing: 0; }
+    .pane-scroll { overflow-y: auto; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+    .java-sub-block { padding: 5px 0; border-bottom: 1px solid #ffffff12; }
+    .java-sub-block:last-child { border-bottom: none; padding-bottom: 0; }
+    .java-sub-block .sub-label { font-size: 10px; font-weight: 700; letter-spacing:.04em; opacity:.5; margin-bottom:2px; }
+    .step-num { font-size: 11px; font-weight: 700; letter-spacing: .05em; opacity: .6; margin-bottom: 4px; }
+    .step-report { font-size: 14px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; }
+    .step-expected { font-size: 12px; color: #aaa; line-height: 1.5; }
+    .pane-header {
+      background: #2d2d2d; border-bottom: 1px solid #444;
+      padding: 6px 14px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: #aaa;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .pane-header .key-label { font-size: 12px; font-weight: 600; color: #6ab0f5; text-transform: none; letter-spacing: 0; }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed; pointer-events: none; background: #1e2a3a;
+      border: 1px solid #0e639c; border-radius: 4px; padding: 6px 10px;
+      font-size: 11px; max-width: 320px; z-index: 9999; display: none;
+      line-height: 1.5; color: #ccc; white-space: pre-line;
+    }
+
+    /* ── Edit modal ── */
+    #edit-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      z-index: 1000; display: none; align-items: center; justify-content: center;
+    }
+    #edit-modal-backdrop.open { display: flex; }
+    #edit-modal {
+      background: #1e1e1e; border: 1px solid #555; border-radius: 6px;
+      width: 680px; max-height: 82vh; display: flex; flex-direction: column;
+      overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+    .modal-header {
+      background: #2d2d2d; padding: 10px 16px; font-weight: 700; font-size: 13px;
+      border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-close { cursor: pointer; font-size: 16px; opacity: .6; }
+    .modal-close:hover { opacity: 1; }
+    .modal-body { padding: 14px 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+    .modal-body label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #aaa; display: block; margin-bottom: 4px; }
+    .modal-body textarea {
+      width: 100%; background: #3c3c3c; color: #ccc; border: 1px solid #555; border-radius: 3px;
+      padding: 8px; font-size: 12px; font-family: sans-serif; resize: vertical; min-height: 80px;
+    }
+    .modal-body textarea:focus { outline: 1px solid #007acc; }
+    .modal-footer { padding: 10px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #444; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid #ffffff30; border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #666; }
+
+    /* ── Browser panel tabs ── */
+    .browser-tabs {
+      display: flex; background: #2d2d2d; border-bottom: 1px solid #444; flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; background: none; border: none; border-bottom: 2px solid transparent;
+      color: #888; padding: 7px 4px; font-size: 11px; cursor: pointer;
+      font-weight: 600; text-transform: uppercase; letter-spacing: .05em; border-radius: 0;
+    }
+    .tab-btn:hover { color: #ccc; background: #333; }
+    .tab-btn.active { color: #fff; border-bottom-color: #007acc; }
+    #files-tab-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ── OD Runs panel ── */
+    #od-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    #od-panel.visible { display: flex; }
+    .od-filters {
+      padding: 6px 8px; border-bottom: 1px solid #333;
+      display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;
+    }
+    .od-filters input { width: 100%; }
+    .od-filter-row { display: flex; gap: 5px; align-items: center; }
+    .od-filter-row select {
+      background: #3c3c3c; color: #ccc; border: 1px solid #555; border-radius: 3px;
+      padding: 3px 4px; font-size: 11px; flex: 1;
+    }
+    .od-filter-row button { padding: 3px 10px; font-size: 11px; flex-shrink: 0; }
+    #od-jobs-list { overflow-y: auto; flex: 1; }
+    .od-job-row {
+      padding: 6px 10px; border-bottom: 1px solid #2a2a2a;
+      cursor: pointer; font-size: 11px;
+    }
+    .od-job-row:hover { background: #2a2d2e; }
+    .od-job-row.selected { background: #0e3a5a; }
+    .od-job-name { color: #ccc; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od-job-meta { color: #666; font-size: 10px; margin-top: 2px; display: flex; justify-content: space-between; }
+    .od-perc-pass { color: #4ec94e; font-weight: 700; }
+    .od-perc-fail { color: #e05050; font-weight: 700; }
+
+    /* OD results sub-pane (inside browser panel) */
+    #od-results-area {
+      border-top: 2px solid #444; flex-shrink: 0; max-height: 230px;
+      overflow-y: auto; background: #1a1a1a; display: none;
+    }
+    .od-results-header {
+      padding: 5px 10px; background: #2d2d2d; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; color: #888; letter-spacing: .05em;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .od-result-row {
+      padding: 4px 10px; border-bottom: 1px solid #222; font-size: 11px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .od-result-row.clickable { cursor: pointer; }
+    .od-result-row.clickable:hover { background: #252526; }
+    .od-r-icon { flex-shrink: 0; font-size: 11px; }
+    .od-r-name { color: #ccc; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od-r-dur  { color: #666; font-size: 10px; flex-shrink: 0; }
+
+    /* ── 3-pane audit layout ── */
+    #audit-view.three-pane .paired-header { grid-template-columns: 1fr 1fr 1fr; }
+    #audit-view.three-pane .pair-row      { grid-template-columns: 1fr 1fr 1fr; }
+
+    .paired-header .ph-cell + .ph-cell    { border-left: 1px solid #444; }
+    .paired-header .ph-cell:first-child   { border-right: none; }
+    /* OD execution cell */
+    .od-exec-result { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .od-exec-icon   { font-size: 14px; flex-shrink: 0; }
+    .od-exec-meta   { font-size: 10px; color: #888; margin-top: 1px; }
+    .od-fail-msg    {
+      margin-top: 6px; font-size: 10px; color: #e08080; background: #3a1010;
+      padding: 5px 8px; border-radius: 3px; border: 1px solid #6e2020;
+      white-space: pre-wrap; word-break: break-all; max-height: 90px; overflow-y: auto;
+    }
+    /* OD step not-run state */
+    .pair-cell.od-nodata { background: #1a1a1a; border: 1px dashed #2a2a2a; display: flex; align-items: center; justify-content: center; color: #333; font-size: 11px; font-style: italic; }
+
+    /* ── Landing Page ── */
+    #landing-page {
+      position: fixed; inset: 0; background: #1e1e1e;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 600; gap: 24px; padding: 24px;
+    }
+    .landing-logo  { font-size: 48px; }
+    .landing-title { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -.5px; margin-top: -4px; }
+    .landing-sub   { font-size: 12px; color: #555; margin-top: -16px; }
+    .landing-cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 920px; }
+    .landing-card  {
+      background: #252526; border: 1px solid #3a3a3a; border-radius: 10px;
+      padding: 28px 30px; min-width: 220px; max-width: 268px; text-align: left;
+      cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .15s, background .15s, transform .12s;
+    }
+    .landing-card:hover { border-color: #007acc; background: #1e2e3e; transform: translateY(-3px); }
+    .landing-card .card-icon  { font-size: 34px; text-align: center; }
+    .landing-card .card-title { font-size: 14px; font-weight: 700; color: #e0e0e0; text-align: center; }
+    .landing-card .card-desc  { font-size: 11px; color: #999; line-height: 1.6; }
+
+    /* ── Mode overlays ── */
+    .mode-overlay { position: fixed; inset: 0; z-index: 400; background: #1e1e1e; display: flex; flex-direction: column; overflow: hidden; }
+    .btn-back { background: transparent; color: #777; border: 1px solid #3a3a3a; font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer; }
+    .btn-back:hover { color: #ccc; border-color: #666; background: transparent; }
+
+    /* ── Zephyr folder tree sidebar (shared by MVSA & Chain modes) ── */
+    .zf-sidebar {
+      width: 280px; min-width: 220px; max-width: 360px;
+      background: #252526; border-right: 1px solid #444;
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    }
+    .zf-sidebar-header {
+      padding: 8px 12px; background: #2d2d2d; border-bottom: 1px solid #444;
+      font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: .05em;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .zf-sidebar-header .zf-refresh { margin-left: auto; cursor: pointer; font-size: 14px; color: #666; }
+    .zf-sidebar-header .zf-refresh:hover { color: #ccc; }
+    .zf-prompt { padding: 8px 10px; background: #1e1e1e; border-bottom: 1px solid #333; flex-shrink: 0; display: flex; flex-direction: column; gap: 5px; }
+    .zf-prompt label { font-size: 10px; color: #888; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 1px; }
+    .zf-prompt input { width: 100%; box-sizing: border-box; background: #252526; border: 1px solid #555; color: #ccc; font-size: 12px; padding: 4px 6px; border-radius: 3px; }
+    .zf-prompt input:focus { outline: none; border-color: #0e639c; }
+    .zf-load-btn { margin: 6px 10px 2px; padding: 5px 0; background: #0e639c; color: #fff; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex-shrink: 0; }
+    .zf-load-btn:hover { background: #1177bb; }
+    .zf-search { padding: 6px 8px; border-bottom: 1px solid #333; flex-shrink: 0; }
+    .zf-search input { width: 100%; min-width: unset; background: #1e1e1e; }
+    .zf-tree { overflow-y: auto; flex: 1; padding: 4px 0; }
+    .zf-loading { padding: 16px 12px; font-size: 11px; color: #666; }
+    .zf-folder {
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 8px; font-size: 12px; cursor: pointer;
+      color: #ccc; user-select: none; border-radius: 2px;
+    }
+    .zf-folder:hover { background: #2a2d2e; }
+    .zf-folder.selected { background: #094771; color: #fff; }
+    .zf-folder .zf-icon { font-size: 9px; transition: transform 0.15s; flex-shrink: 0; }
+    .zf-folder.open > .zf-icon { transform: rotate(90deg); }
+    .zf-folder .zf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .zf-children { display: none; padding-left: 14px; }
+    .zf-children.open { display: block; }
+    .zf-mode-body { display: flex; flex: 1; overflow: hidden; }
+    .zf-main { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ── Mode 3 (OD Runs full-page) ── */
+    #od3-toolbar { background: #3c3c3c; border-bottom: 1px solid #444; padding: 8px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+    #od3-toolbar h1 { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
+    #od3-main { display: flex; flex: 1; overflow: hidden; }
+    #od3-jobs-panel { width: 380px; flex-shrink: 0; background: #252526; border-right: 1px solid #444; display: flex; flex-direction: column; overflow: hidden; }
+    .od3-filters { padding: 8px; border-bottom: 1px solid #444; display: flex; flex-direction: column; gap: 5px; }
+    .od3-filter-row { display: flex; gap: 5px; }
+    .od3-filter-row select { flex: 1; background: #3c3c3c; color: #ccc; border: 1px solid #555; border-radius: 3px; padding: 3px 6px; font-size: 12px; }
+    #od3-jobs-list { overflow-y: auto; flex: 1; }
+    .od3-job-row { padding: 8px 12px; border-bottom: 1px solid #1e1e1e; cursor: pointer; font-size: 12px; }
+    .od3-job-row:hover { background: #2a2d2e; }
+    .od3-job-row.selected { background: #094771; }
+    .od3-job-name { color: #ccc; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od3-job-meta { display: flex; justify-content: space-between; font-size: 10px; color: #666; }
+    .od3-job-system { font-size: 10px; color: #558aaa; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od3-perc-pass { color: #4ec94e; } .od3-perc-fail { color: #e05050; }
+    .od3-batch-group { border-bottom: 1px solid #1e1e1e; }
+    .od3-batch-header { padding: 7px 10px; background: #1c2a1c; cursor: pointer; font-size: 11px; color: #7ec87e; font-weight: 600; display: flex; align-items: center; gap: 6px; user-select: none; }
+    .od3-batch-header:hover { background: #223322; }
+    .od3-batch-header.open { background: #1e341e; }
+    .od3-batch-toggle { font-size: 9px; color: #5aa55a; display: inline-block; transition: transform 0.15s; flex-shrink: 0; }
+    .od3-batch-header.open .od3-batch-toggle { transform: rotate(90deg); }
+    .od3-batch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od3-batch-runs { display: none; }
+    .od3-batch-runs.open { display: block; }
+    .od3-batch-runs .od3-job-row { padding-left: 20px; border-left: 2px solid #2a4028; }
+    #od3-detail-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    #od3-placeholder { display: flex; flex: 1; align-items: center; justify-content: center; color: #555; font-size: 13px; }
+    #od3-detail-header { padding: 8px 14px; background: #2d2d2d; border-bottom: 1px solid #444; font-size: 12px; font-weight: 700; color: #ccc; flex-shrink: 0; display: none; justify-content: space-between; align-items: center; gap: 8px; }
+    #od3-results-filter { background: #1e1e1e; border: 1px solid #555; color: #ccc; border-radius: 3px; padding: 3px 8px; font-size: 11px; min-width: 160px; }
+    #od3-results-filter:focus { border-color: #007acc; outline: none; }
+    .od3-r-name mark { background: #664400; color: #ffd080; border-radius: 2px; padding: 0 1px; }
+    #od3-results-list { overflow-y: auto; flex: 1; }
+    .od3-result-row { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-bottom: 1px solid #1e1e1e; font-size: 12px; }
+    .od3-result-row.clickable { cursor: pointer; }
+    .od3-result-row.clickable:hover { background: #2a2d2e; }
+    .od3-r-icon { flex-shrink: 0; }
+    .od3-r-name { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od3-r-dur  { font-size: 10px; color: #666; flex-shrink: 0; }
+    .od3-r-audit { font-size: 10px; padding: 2px 8px; background: #0e639c; color: #fff; border: none; border-radius: 3px; cursor: pointer; flex-shrink: 0; }
+    .od3-r-audit:hover { background: #1177bb; }
+    #od3-audit-all-btn { font-size: 11px; padding: 4px 12px; background: #c04040; color: #fff; border: none; border-radius: 3px; cursor: pointer; flex-shrink: 0; display: none; }
+    #od3-audit-all-btn:hover { background: #d05050; }
+    #ora-recall-bar { display: none; padding: 5px 10px; background: #252526; border-bottom: 1px solid #383838; font-size: 11px; color: #888; flex-shrink: 0; align-items: center; }
+    #ora-recall-btn { margin-left: auto; padding: 2px 10px; font-size: 11px; cursor: pointer; background: #7a2020; color: #ffd0d0; border: 1px solid #b03030; border-radius: 3px; }
+    #ora-recall-btn:hover { background: #a03030; }
+
+    /* ── OD Run Audit Panel (slide-over) ── */
+    #od-run-audit-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 700px; background: #1e1e1e; border-left: 2px solid #c04040; z-index: 600; display: none; flex-direction: column; overflow: hidden; box-shadow: -6px 0 30px #0009; }
+    #od-run-audit-panel.open { display: flex; }
+    .ora-header { background: #2d2d2d; border-bottom: 1px solid #444; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .ora-header h3 { flex: 1; font-size: 13px; font-weight: 700; color: #ccc; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ora-close { cursor: pointer; color: #666; font-size: 18px; flex-shrink: 0; padding: 0 4px; line-height: 1; }
+    .ora-close:hover { color: #ccc; }
+    .ora-export-btn { font-size: 11px; padding: 4px 12px; background: #0e639c; color: #fff; border: none; border-radius: 3px; cursor: pointer; flex-shrink: 0; display: none; }
+    .ora-export-btn:hover { background: #1177bb; }
+    .ora-progress-wrap { background: #252525; border-bottom: 1px solid #333; padding: 8px 14px; flex-shrink: 0; }
+    .ora-progress-track { height: 4px; background: #333; border-radius: 2px; overflow: hidden; margin-bottom: 5px; }
+    .ora-progress-fill { height: 100%; background: #e05050; border-radius: 2px; transition: width .3s; width: 0%; }
+    .ora-progress-label { font-size: 10px; color: #666; }
+    .ora-summary { padding: 8px 14px; background: #252526; border-bottom: 1px solid #333; font-size: 11px; color: #aaa; flex-shrink: 0; display: none; flex-wrap: wrap; gap: 14px; }
+    .ora-summary span { display: inline-flex; align-items: center; gap: 4px; }
+    /* LLM analysis block */
+    .ora-analysis { background: #1a1a2e; border: 1px solid #2e4070; border-radius: 5px; margin: 8px 8px 0; padding: 12px 14px; display: none; flex-shrink: 0; }
+    .ora-analysis.visible { display: block; }
+    .ora-analysis-thinking { font-size: 11px; color: #6ab0f5; display: flex; align-items: center; gap: 6px; }
+    .ora-analysis-headline { font-size: 13px; font-weight: 700; color: #c8d8ff; margin-bottom: 10px; }
+    .ora-analysis-verdict { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
+    .ora-verdict-environment { background: #3a1a3a; color: #d0a0ff; border: 1px solid #6040a0; }
+    .ora-verdict-config      { background: #3a2800; color: #f0c060; border: 1px solid #806000; }
+    .ora-verdict-regression  { background: #3a0a0a; color: #f08080; border: 1px solid #802020; }
+    .ora-verdict-flaky       { background: #1a2a3a; color: #80c0f0; border: 1px solid #205080; }
+    .ora-verdict-mixed       { background: #2a2a2a; color: #aaa;    border: 1px solid #555; }
+    .ora-verdict-timeout     { background: #2a1a00; color: #ffaa40; border: 1px solid #704000; }
+    .ora-pattern { background: #1e2440; border-left: 3px solid #4060c0; border-radius: 3px; padding: 8px 10px; margin-bottom: 6px; }
+    .ora-pattern:last-child { margin-bottom: 0; }
+    .ora-pattern-title { font-size: 11px; font-weight: 700; color: #8ab0f0; margin-bottom: 4px; }
+    .ora-pattern-desc  { font-size: 11px; color: #bbb; margin-bottom: 4px; line-height: 1.5; }
+    .ora-pattern-sugg  { font-size: 11px; color: #f0c060; line-height: 1.5; }
+    .ora-pattern-sugg::before { content: '💡 '; }
+    .ora-results { overflow-y: auto; flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+    .ora-card { background: #252526; border: 1px solid #3a3a3a; border-radius: 5px; overflow: hidden; }
+    .ora-card-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; font-size: 12px; }
+    .ora-card-header:hover { background: #2a2d2e; }
+    .ora-card-icon { flex-shrink: 0; font-size: 14px; }
+    .ora-card-name { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ora-card-jira { font-size: 10px; color: #6ab0f5; white-space: nowrap; }
+    .ora-card-jira a { color: #6ab0f5; text-decoration: none; }
+    .ora-card-jira a:hover { text-decoration: underline; }
+    .ora-card-github { font-size: 10px; color: #7ec87e; white-space: nowrap; }
+    .ora-card-github a { color: #7ec87e; text-decoration: none; }
+    .ora-card-github a:hover { text-decoration: underline; }
+    .ora-cov-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+    .ora-cov-100  { background: #1a3a1a; color: #4ec94e; border: 1px solid #2e5e2e; }
+    .ora-cov-part { background: #3a3000; color: #f0c040; border: 1px solid #6e5e00; }
+    .ora-cov-none { background: #3a1010; color: #f07070; border: 1px solid #6e2020; }
+    .ora-cov-na   { background: #2a2a2a; color: #777;    border: 1px solid #444; }
+    .ora-card-chevron { font-size: 10px; color: #555; flex-shrink: 0; transition: transform .15s; }
+    .ora-card.open .ora-card-chevron { transform: rotate(90deg); }
+    .ora-card-body { display: none; padding: 8px 12px; border-top: 1px solid #2a2a2a; font-size: 11px; }
+    .ora-card.open .ora-card-body { display: block; }
+    .ora-detail-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    .ora-detail-label { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #666; white-space: nowrap; padding-top: 1px; min-width: 90px; flex-shrink: 0; }
+    .ora-detail-val { color: #bbb; line-height: 1.5; flex: 1; }
+    .ora-detail-val.fail { color: #f07070; }
+    .ora-unmatched-list { margin: 2px 0; padding-left: 14px; color: #e05050; }
+    .ora-unmatched-list li { margin-bottom: 2px; }
+    .ora-card-error { padding: 8px 12px; font-size: 11px; color: #f07070; font-style: italic; border-top: 1px solid #2a2a2a; }
+
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LANDING PAGE
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div id="landing-page">
+  <div class="landing-logo">⚖</div>
+  <div class="landing-title">OnDemand Auditor</div>
+  <div class="landing-sub">Select an audit mode to begin</div>
+  <div class="landing-cards">
+    <div class="landing-card" onclick="selectMode(1)">
+      <div class="card-icon">☕</div>
+      <div class="card-title">Automated vs OD</div>
+      <div class="card-desc">Compare OnDemand Java automation blocks against Zephyr automated test steps to verify implementation coverage.</div>
+    </div>
+    <div class="landing-card" onclick="selectMode(3)">
+      <div class="card-icon">🔴</div>
+      <div class="card-title">OD Run Results</div>
+      <div class="card-desc">Browse OnDemand test run history by keyword, inspect failures step-by-step, and launch targeted audits.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MODE 1 — OD vs Automated (existing audit)
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div id="mode-1" class="mode-overlay" style="display:none">
+
+<div class="toolbar">
+  <button class="btn-back" id="mode1-back-btn" onclick="mode1Back()">← Back</button>
+  <h1>☕ Automated vs OD</h1>
+  <button id="toggle-browser" class="btn-secondary" title="Toggle file browser">📁 Files</button>
+  <button id="refresh-tree" class="btn-secondary" title="Reload file list from GitHub">↺ Refresh</button>
+  <div style="flex:1"></div>
+  <span id="audit-status" style="font-size:11px;color:#888;"></span>
+  <button id="run-audit-btn" disabled>▶ Run Audit</button>
+</div>
+
+<div class="status-bar" id="summary-bar" style="display:none">
+  <span>Audit results:</span>
+  <span class="badge badge-green"  id="sum-matched">0 matched</span>
+  <span class="badge badge-yellow" id="sum-warnings">0 warnings</span>
+  <span class="badge badge-red"    id="sum-unmatched">0 unmatched</span>
+  <span style="margin-left:auto;font-size:10px;color:#ffffff80" id="sum-ticket"></span>
+</div>
+
+<div class="main-area">
+  <div id="browser-panel">
+    <div class="browser-header">
+      <span>Test Files</span>
+      <span id="file-count" style="font-weight:400;color:#888;font-size:10px;"></span>
+    </div>
+    <div class="browser-search">
+      <input type="text" id="tree-search" placeholder="Filter files…" />
+    </div>
+    <div id="multi-folder-bar">
+      <span id="multi-folder-count">0 folders selected</span>
+      <button id="multi-folder-run" class="btn-primary">▶ Run Selected</button>
+      <button id="multi-folder-clear">✕ Clear</button>
+    </div>
+    <div id="file-tree"><div style="padding:20px;color:#666;font-size:12px;">Loading…</div></div>
+  </div>
+  <div id="browser-resize-handle" title="Drag to resize"></div>
+
+  <div class="content-area">
+    <div class="placeholder" id="placeholder">
+      <div class="icon-large">⚖</div>
+      <div>Select a test file from the panel to begin.</div>
+      <div style="font-size:11px;color:#555">Files with a Zephyr ticket key comment (e.g. <code>// EX-T1001</code>) will be auto-matched.</div>
+    </div>
+
+    <div class="placeholder" id="loading-state" style="display:none">
+      <div><span class="spinner"></span><span id="loading-msg">Loading…</span></div>
+    </div>
+
+    <div class="audit-wrapper" id="audit-view" style="display:none">
+      <div id="folder-recall-bar">
+        <span>Viewing individual case — folder results preserved</span>
+        <button id="folder-recall-btn">&#8592; Folder Review</button>
+      </div>
+      <div class="paired-header">
+        <div class="ph-cell" id="ph-od" style="display:none">
+          <span>OD Run</span>
+          <span class="ph-key" id="od-run-label"></span>
+        </div>
+        <div class="ph-cell">
+          <span>Zephyr Steps</span>
+          <span class="ph-key" id="zephyr-key-label"></span>
+        </div>
+        <div class="ph-cell">
+          <span>OnDemand Java</span>
+          <span class="ph-key" id="java-filename"></span>
+        </div>
+      </div>
+      <div id="expanded-from-notice" style="display:none;margin:4px 10px 0;padding:6px 10px;background:rgba(74,140,204,0.15);color:#7ab8f5;font-size:11px;border-radius:4px;border-left:3px solid #4a8ccc;"></div>
+      <div class="paired-scroll" id="paired-scroll"></div>
+      <div id="summary-pane">
+        <div class="pane-header">
+          <span>Audit Summary</span>
+          <span class="key-label" id="summary-ticket"></span>
+        </div>
+        <div id="summary-pane-cols">
+          <div id="summary-verdict-col"></div>
+          <div id="summary-detail-col"><div id="summary-pane-body"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end mode-1 -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MODE 3 — OD Run Results
+═══════════════════════════════════════════════════════════════════════════════ -->
+<div id="mode-3" class="mode-overlay" style="display:none">
+  <div id="od3-toolbar">
+    <button class="btn-back" onclick="showLanding()">← Back</button>
+    <h1>🔴 OD Run Results</h1>
+    <input type="text" id="od3-keywords" placeholder="Search runs (e.g. panels)…" style="min-width:210px;" />
+    <select id="od3-env">
+      <option value="ALL">All Envs</option>
+      <option value="PROD">PROD</option>
+      <option value="TEST">TEST</option>
+    </select>
+    <select id="od3-status">
+      <option value="all">All Status</option>
+      <option value="failed">Failed</option>
+      <option value="passed">Passed</option>
+    </select>
+    <button id="od3-load-btn">▶ Load</button>
+  </div>
+  <div id="od3-main">
+    <div id="od3-jobs-panel">
+      <div id="od3-jobs-list">
+        <div style="padding:16px;color:#555;font-size:12px;">Enter keywords and click Load.</div>
+      </div>
+    </div>
+    <div id="od3-detail-panel">
+      <div id="od3-placeholder">Select a run to view test results.</div>
+      <div id="od3-detail-header">
+        <span id="od3-suite-name">Results</span>
+        <span id="od3-stats" style="font-weight:400;color:#aaa;font-size:11px;"></span>
+        <input type="search" id="od3-results-filter" placeholder="Filter results…" />
+        <button id="od3-audit-all-btn" title="Run LLM audit on all failed tests in this run">🔍 Audit All Failures</button>
+      </div>
+      <div id="od3-suite-skipped-notice" style="display:none;padding:10px 14px;background:#2a2200;border-bottom:1px solid #554400;color:#c8a820;font-size:11px;">
+        ⏩ All tests in this suite were <strong>skipped</strong> — the suite did not run. No failures to audit.
+      </div>
+      <div id="ora-recall-bar">
+        <span>Audit All Failures results preserved</span>
+        <button id="ora-recall-btn">← Return to Audit Report</button>
+      </div>
+      <div id="od3-results-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OD Run Audit slide-over panel ── -->
+<div id="od-run-audit-panel">
+  <div class="ora-header">
+    <h3 id="ora-title">Run Audit Report</h3>
+    <button class="ora-export-btn" id="ora-export-btn">⬇ Export HTML</button>
+    <span class="ora-close" id="ora-close-btn" title="Close">✕</span>
+  </div>
+  <div class="ora-progress-wrap">
+    <div class="ora-progress-track"><div class="ora-progress-fill" id="ora-progress-fill"></div></div>
+    <div class="ora-progress-label" id="ora-progress-label">Ready</div>
+  </div>
+  <div class="ora-analysis" id="ora-analysis"></div>
+  <div class="ora-summary" id="ora-summary"></div>
+  <div class="ora-results" id="ora-results"></div>
+</div>
+
+<div id="tooltip"></div>
+
+<!-- ── Folder audit slide-in panel ── -->
+<div id="folder-audit-panel">
+  <div class="fp-header">
+    <h3 id="fp-title">Folder Audit</h3>
+    <span class="fp-close" id="fp-close-btn">✕</span>
+  </div>
+  <div id="fp-gate" class="fp-gate">
+    <div class="fp-gate-title">Before the review starts, what should the auditor know?</div>
+    <div class="fp-gate-copy">Add any context that explains why these tests were written the way they were. Example: full alarm checks were intentionally removed to reduce run time, so stopping at Pending Alarm is expected and should not be flagged.</div>
+    <textarea id="fp-context-input" rows="4" placeholder="Optional: share any intentional gaps, shortened flows, or project-specific review rules for this folder..."></textarea>
+    <div class="fp-gate-actions">
+      <button id="fp-start-btn">Start Review With Context</button>
+      <button id="fp-skip-btn" class="secondary">Skip Context</button>
+    </div>
+  </div>
+  <div class="fp-progress-bar-wrap" id="fp-progress-wrap" style="display:none;">
+    <div class="fp-progress-track"><div class="fp-progress-fill" id="fp-progress-fill"></div></div>
+    <div class="fp-progress-label" id="fp-progress-label">Ready</div>
+  </div>
+  <div class="fp-totals" id="fp-totals" style="display:none">
+    <div class="fp-total-item green"><b id="fp-t-matched">0</b> matched</div>
+    <div class="fp-total-item yellow"><b id="fp-t-warned">0</b> warnings</div>
+    <div class="fp-total-item red"><b id="fp-t-unmatched">0</b> unmatched</div>
+    <div class="fp-total-item"><b id="fp-t-files">0</b> files</div>
+    <div class="fp-total-item"><b id="fp-t-skipped">0</b> skipped</div>
+  </div>
+  <div style="font-size:11px;color:#666;padding:4px 10px 6px;display:none;" id="fp-coverage-note">Coverage counts only fully matched steps — warned and unmatched steps both reduce coverage.</div>
+  <div class="fp-col-header" id="fp-col-header" style="display:none;">
+    <span>Test</span><span>Ticket</span><span>✅ Matched</span><span>⚠ Warns</span><span>❌ Unmatched</span><span>Coverage</span><span>Adj. Cov</span>
+  </div>
+  <div class="fp-results" id="fp-results"></div>
+  <div class="fp-export-bar" id="fp-export-bar">
+    <button id="fp-export-btn">⬇ Export as CSV</button>
+  </div>
+</div>
+
+<div id="edit-modal-backdrop">
+  <div id="edit-modal">
+    <div class="modal-header">
+      <span>Edit Zephyr Step <span id="modal-step-num"></span></span>
+      <span class="modal-close" id="modal-close-btn">✕</span>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label>Description</label>
+        <textarea id="modal-desc" rows="4"></textarea>
+      </div>
+      <div>
+        <label>Expected Result</label>
+        <textarea id="modal-expected" rows="5"></textarea>
+      </div>
+      <div id="modal-issue-note" style="display:none;font-size:11px;padding:8px;background:#3a300055;border-radius:3px;border:1px solid #6e5e00;color:#f0c060;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button id="modal-save-btn">Save to Zephyr</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let fileTree    = [];
+let selectedFile = null;
+let auditReport  = null;
+let editingStep  = null;
+let folderAuditAbort = null;
+let activeOdDetail   = null;  // OD fail detail for 3-pane mode
+let currentGithubUrl = '';    // GitHub blob URL for the currently displayed Java file
+let activeFolderAuditContext = '';
+const auditResultCache = new Map(); // filename → { report, filename } — avoids re-running on row click
+
+// ─── DOM ──────────────────────────────────────────────────────────────────────
+const browserPanel   = document.getElementById('browser-panel');
+
+// ─── Browser panel resize ─────────────────────────────────────────────────────
+(function() {
+  const handle = document.getElementById('browser-resize-handle');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = browserPanel.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.min(600, Math.max(160, startW + (e.clientX - startX)));
+    browserPanel.style.width = w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+const fileTreeEl     = document.getElementById('file-tree');
+const treeSearch     = document.getElementById('tree-search');
+const placeholder    = document.getElementById('placeholder');
+const loadingState   = document.getElementById('loading-state');
+const loadingMsg     = document.getElementById('loading-msg');
+const auditView      = document.getElementById('audit-view');
+const summaryBar     = document.getElementById('summary-bar');
+const runAuditBtn    = document.getElementById('run-audit-btn');
+const auditStatus    = document.getElementById('audit-status');
+const tooltip        = document.getElementById('tooltip');
+const editBackdrop   = document.getElementById('edit-modal-backdrop');
+const modalDesc      = document.getElementById('modal-desc');
+const modalExpected  = document.getElementById('modal-expected');
+const modalStepNum   = document.getElementById('modal-step-num');
+const modalIssueNote = document.getElementById('modal-issue-note');
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) { opts.body = JSON.stringify(body); }
+  const res  = await fetch(path, opts);
+  const json = await res.json();
+  if (!res.ok) { throw new Error(json.error || `HTTP ${res.status}`); }
+  return json;
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+// File tree loads lazily when mode-1 is selected (see selectMode)
+
+// ─── Requirements Lens toggle ──────────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('toggle-browser').addEventListener('click', () => {
+  browserPanel.classList.toggle('collapsed');
+});
+document.getElementById('refresh-tree').addEventListener('click', () => {
+  fileTreeEl.innerHTML = '<div style="padding:20px;color:#666;font-size:12px;">Loading…</div>';
+  loadFileTree();
+});
+runAuditBtn.addEventListener('click', () => {
+  if (selectedFile) { fetchAndAudit(selectedFile); }
+});
+treeSearch.addEventListener('input', () => {
+  renderTree(fileTree, treeSearch.value.toLowerCase().trim());
+});
+
+// ─── Browser panel tabs ───────────────────────────────────────────────────────
+// (single Files tab — no tab switching needed)
+
+// ─── File tree ────────────────────────────────────────────────────────────────
+async function loadFileTree() {
+  try {
+    const data = await api('GET', '/api/tree');
+    fileTree   = data.tree;
+    document.getElementById('file-count').textContent = `${data.totalFiles} files`;
+    renderTree(fileTree, '');
+  } catch (err) {
+    fileTreeEl.innerHTML = `<div style="padding:12px;color:#f07070;font-size:12px;">⚠ ${err.message}</div>`;
+  }
+}
+
+function renderTree(nodes, filter) {
+  fileTreeEl.innerHTML = '';
+  if (!nodes || nodes.length === 0) {
+    fileTreeEl.innerHTML = '<div style="padding:12px;color:#666;font-size:12px;">No files found.</div>';
+    return;
+  }
+  nodes.forEach(node => {
+    // Skip the PanelsHelper root wrapper — render its children directly
+    if (node.type === 'folder' && node.name.trim().toLowerCase() === 'panelshelper') {
+      (node.children || []).forEach(child => {
+        const el = buildTreeNode(child, filter);
+        if (el) fileTreeEl.appendChild(el);
+      });
+      return;
+    }
+    const el = buildTreeNode(node, filter);
+    if (el) { fileTreeEl.appendChild(el); }
+  });
+}
+
+function buildTreeNode(node, filter) {
+  if (node.type === 'folder') {
+    const wrapper  = document.createElement('div');
+    wrapper.className = 'tree-folder';
+    const label    = document.createElement('div');
+    label.className = 'tree-folder-label';
+
+    // Checkbox for multi-folder selection
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'folder-check';
+    chk.title = `Select "${node.name}" for multi-folder run`;
+    chk._node = node;
+    chk.addEventListener('click', e => e.stopPropagation()); // don't toggle folder open/close
+    chk.addEventListener('change', e => {
+      e.stopPropagation();
+      // Cascade to all descendant folder and file checkboxes
+      wrapper.querySelectorAll('.folder-check, .file-check').forEach(c => {
+        c.checked = chk.checked;
+        if (c.classList.contains('folder-check')) {
+          if (chk.checked) selectedFolders.set(c._node.folderPath || c._node.name, c._node);
+          else             selectedFolders.delete(c._node.folderPath || c._node.name);
+        }
+      });
+      // Include the parent itself
+      if (chk.checked) selectedFolders.set(node.folderPath || node.name, node);
+      else             selectedFolders.delete(node.folderPath || node.name);
+      updateMultiFolderBar();
+    });
+    label.appendChild(chk);
+
+    const runBtn = document.createElement('button');
+    runBtn.className = 'run-folder-btn';
+    runBtn.textContent = '▶ Run';
+    runBtn.title = `Audit all test files in "${node.name}"`;
+    runBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      runFolderAudit([node]);
+    });
+
+    const labelText = document.createElement('span');
+    labelText.innerHTML = `<span class="icon">▶</span> 📂 ${node.name}`;
+    label.appendChild(labelText);
+    label.appendChild(runBtn);
+    wrapper.appendChild(label);
+    wrapper.dataset.folderPath = node.folderPath || '';
+    const children = document.createElement('div');
+    children.className = 'tree-folder-children';
+    let hasVisible = false;
+    (node.children || []).forEach(child => {
+      const el = buildTreeNode(child, filter);
+      if (el) { children.appendChild(el); hasVisible = true; }
+    });
+    if (!hasVisible && filter) { return null; }
+    labelText.addEventListener('click', () => {
+      label.classList.toggle('open');
+      children.classList.toggle('open');
+    });
+    if (filter && hasVisible) {
+      label.classList.add('open');
+      children.classList.add('open');
+    }
+    wrapper.appendChild(children);
+    return wrapper;
+  }
+
+  // File node
+  if (filter && !node.filename.toLowerCase().includes(filter) &&
+      !(node.ticketKey && node.ticketKey.toLowerCase().includes(filter))) {
+    return null;
+  }
+  const el  = document.createElement('div');
+  el.className = 'tree-file';
+  el.dataset.path = node.path;
+  const fileChk = document.createElement('input');
+  fileChk.type = 'checkbox';
+  fileChk.className = 'file-check';
+  fileChk.tabIndex = -1;
+  fileChk.addEventListener('click', e => e.stopPropagation());
+  el.appendChild(fileChk);
+  const name = document.createElement('span');
+  const displayName = node.filename.replace(/Test\.java$/, '').replace(/\.java$/, '');
+  name.textContent = displayName;
+  name.title = displayName;
+  el.appendChild(name);
+  if (node.ticketKey) {
+    const badge = document.createElement('span');
+    badge.className   = 'ticket-badge';
+    badge.textContent = node.ticketKey;
+    el.appendChild(badge);
+  }
+  if (selectedFile && selectedFile.path === node.path) { el.classList.add('selected'); }
+  el.addEventListener('click', () => selectFile(node));
+  return el;
+}
+
+// ─── File selection ───────────────────────────────────────────────────────────
+function selectFile(node, options = {}) {
+  const { autoFetch = true, userContext = '' } = options;
+  selectedFile = node;
+  // Update selection highlight in-place — do NOT call renderTree (collapses folders)
+  document.querySelectorAll('.tree-file').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.tree-file[data-path="${node.path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`);
+  if (el) { el.classList.add('selected'); }
+
+  runAuditBtn.disabled = false;
+  auditStatus.textContent = node.ticketKey
+    ? `Selected: ${node.filename} → ${node.ticketKey}`
+    : `Fetching: ${node.filename}…`;
+  // Always fetch — server detects the ticket key from file content
+  if (autoFetch) { fetchAndAudit(node, userContext); }
+}
+
+async function fetchAndAudit(node, userContext = '') {
+  setLoading(`Fetching ${node.filename}…`);
+  try {
+    const file = await api('GET', `/api/file?path=${encodeURIComponent(node.path)}`);
+    setLoading('Running LLM audit…');
+    const result = await api('POST', '/api/audit', {
+      source: file.source, ticketKey: file.ticketKey, filename: file.filename, userContext,
+    });
+    auditReport = result.report;
+    activeOdDetail = null;
+    currentGithubUrl = (githubRepo && githubBranch && node.path)
+      ? `https://github.com/${githubRepo}/blob/${githubBranch}/${node.path}` : '';
+    const mode1Title = document.querySelector('#mode-1 h1');
+    if (mode1Title) mode1Title.textContent = '☕ Automated vs OD';
+    const backBtn = document.getElementById('mode1-back-btn');
+    if (backBtn) { backBtn.textContent = '← Back'; backBtn._fromOdRun = false; }
+    renderAuditView(auditReport, result.filename);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ─── Loading / error ──────────────────────────────────────────────────────────
+function setLoading(msg) {
+  placeholder.style.display  = 'none';
+  auditView.style.display    = 'none';
+  summaryBar.style.display   = 'none';
+  loadingState.style.display = 'flex';
+  loadingMsg.textContent     = msg;
+}
+function showError(msg) {
+  loadingState.style.display = 'none';
+  placeholder.style.display  = 'flex';
+  placeholder.innerHTML = `<div class="icon-large">⚠</div><div style="color:#f07070">${msg}</div>`;
+}
+
+// ─── Audit view renderer ──────────────────────────────────────────────────────
+function renderAuditView(report, filename, odDetail) {
+  loadingState.style.display = 'none';
+  placeholder.style.display  = 'none';
+  auditView.style.display    = 'flex';
+  summaryBar.style.display   = 'flex';
+
+  // 3-pane mode when OD detail is provided
+  const isThreePane = !!(odDetail && odDetail.steps && odDetail.steps.length);
+  auditView.classList.toggle('three-pane', isThreePane);
+  const phOd = document.getElementById('ph-od');
+  phOd.style.display = isThreePane ? 'flex' : 'none';
+  if (isThreePane) {
+    document.getElementById('od-run-label').textContent =
+      odDetail.scenario ? odDetail.scenario.slice(0, 50) + (odDetail.scenario.length > 50 ? '…' : '') : '';
+  }
+
+  const javaFilenameEl = document.getElementById('java-filename');
+  if (currentGithubUrl) {
+    javaFilenameEl.innerHTML = `<a href="${escHtml(currentGithubUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">${escHtml(filename || '')}</a>`;
+  } else {
+    javaFilenameEl.textContent = filename || '';
+  }
+  document.getElementById('zephyr-key-label').innerHTML = zephyrKeyLink(report.ticketKey);
+  document.getElementById('sum-ticket').innerHTML       = zephyrKeyLink(report.ticketKey);
+  document.getElementById('sum-matched').textContent      = `${report.summary.matched} matched`;
+  document.getElementById('sum-warnings').textContent     = `${report.summary.warnings} warnings`;
+  document.getElementById('sum-unmatched').textContent    = `${report.summary.unmatched} unmatched`;
+
+  // ── Expanded-from notice (call-to-test-case step expansion)
+  const expandedNotice = document.getElementById('expanded-from-notice');
+  if (report.expandedFrom && report.expandedFrom.length > 0) {
+    expandedNotice.textContent = '';
+    expandedNotice.appendChild(document.createTextNode('ℹ️ Steps expanded from referenced test case: '));
+    report.expandedFrom.forEach((e, i) => {
+      if (i > 0) expandedNotice.appendChild(document.createTextNode(', '));
+      const a = document.createElement('a');
+      a.href = zephyrBaseUrl ? `${zephyrBaseUrl}/secure/Tests.jspa#/testCase/${e.key}` : `#`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.color = '#7ab8f5';
+      a.style.fontWeight = 'bold';
+      a.textContent = e.key;
+      expandedNotice.appendChild(a);
+      expandedNotice.appendChild(document.createTextNode(` "${e.name}" (${e.stepCount} steps)`));
+    });
+    expandedNotice.style.display = 'block';
+  } else {
+    expandedNotice.textContent = '';
+    expandedNotice.style.display = 'none';
+  }
+
+  const scroll = document.getElementById('paired-scroll');
+  scroll.innerHTML = '';
+
+  // Build lookup maps — zephyrMatchesMap collects ALL matches per Zephyr step (many→one)
+  const zephyrMatchesMap = {};   // zephyrIndex -> [match, ...]
+  const javaMatchedSet   = new Set();  // javaIndexes matched to a Zephyr step
+  report.matches.forEach(m => {
+    if (m.zephyrIndex !== null) {
+      if (!zephyrMatchesMap[m.zephyrIndex]) zephyrMatchesMap[m.zephyrIndex] = [];
+      zephyrMatchesMap[m.zephyrIndex].push(m);
+    }
+    if (m.zephyrIndex !== null && m.javaIndex !== null) javaMatchedSet.add(m.javaIndex);
+  });
+
+  // Assign each Zephyr step a float render-position (anchor) so unmatched steps
+  // stay in sequential order rather than being dumped at the end.
+  const stepAnchors = {};  // stepIndex → float position in Java block sequence
+  report.zephyrSteps.forEach(step => {
+    const jIdxs = (zephyrMatchesMap[step.index] || [])
+      .map(m => m.javaIndex).filter(ji => ji !== null);
+    if (jIdxs.length > 0) stepAnchors[step.index] = Math.min(...jIdxs);
+  });
+
+  // Unmatched steps: infer position just after the previous matched step's last block
+  report.zephyrSteps.forEach((step, i) => {
+    if (stepAnchors[step.index] !== undefined) return;
+    let prevLast = -1;
+    let nextFirst = report.javaBlocks.length;
+    for (let j = i - 1; j >= 0; j--) {
+      const pIdxs = (zephyrMatchesMap[report.zephyrSteps[j].index] || [])
+        .map(m => m.javaIndex).filter(ji => ji !== null);
+      if (pIdxs.length > 0) { prevLast = Math.max(...pIdxs); break; }
+    }
+    for (let j = i + 1; j < report.zephyrSteps.length; j++) {
+      const nIdxs = (zephyrMatchesMap[report.zephyrSteps[j].index] || [])
+        .map(m => m.javaIndex).filter(ji => ji !== null);
+      if (nIdxs.length > 0) { nextFirst = Math.min(...nIdxs); break; }
+    }
+    // Place unmatched step just before the first setup (unmatched java) block in its gap,
+    // so Zephyr steps always render above their sibling setup blocks.
+    const firstSetupInGap = report.javaBlocks.find(
+      b => b.index > prevLast && b.index < nextFirst && !javaMatchedSet.has(b.index)
+    );
+    stepAnchors[step.index] = firstSetupInGap
+      ? firstSetupInGap.index - 0.5
+      : prevLast + 0.5;
+  });
+
+  // ── Interleaved render via merged sort of steps + Java blocks ─────────────
+  // Steps render before the Java block at the same integer position.
+  const events = [];
+  report.javaBlocks.forEach(b  => events.push({ type: 'block', pos: b.index,                    block: b    }));
+  report.zephyrSteps.forEach(s => events.push({ type: 'step',  pos: stepAnchors[s.index] ?? -1, step:  s    }));
+  events.sort((a, b) => {
+    if (a.pos !== b.pos) return a.pos - b.pos;
+    if (a.type !== b.type) return a.type === 'step' ? -1 : 1;   // step before its anchor block when tied
+    if (a.type === 'step')  return a.step.index  - b.step.index;   // preserve step order on equal pos
+    return a.block.index - b.block.index;
+  });
+
+  // FEEDBACK-LOOP: build verdict lookup (zephyrIndex:reqIdx → {verdict, num}) so makePairedRow
+  // can color warnings based on analysis classifications.
+  // Revert: remove this block and the warningVerdicts arg in the call below + function signature.
+  const warningVerdicts = new Map();
+  if (Array.isArray(report.analysis) && report.analysis.length > 0) {
+    const warnMatches = report.matches.filter(m => m.status === 'warning' && m.issue);
+    // Analysis is 1-to-1 with warnMatches by position — map each verdict directly to its warning.
+    report.analysis.forEach((a, i) => {
+      const wm = warnMatches[i];
+      if (!wm || !a?.verdict) return;
+      const key = wm.req != null ? `${wm.zephyrIndex}:${wm.req}` : `${wm.zephyrIndex}:*`;
+      warningVerdicts.set(key, { verdict: a.verdict, num: i + 1 });
+    });
+  }
+
+  events.forEach(ev => {
+    if (ev.type === 'step') {
+      const matches = zephyrMatchesMap[ev.step.index] || [];
+      const blocks  = matches
+        .filter(m => m.javaIndex !== null)
+        .map(m => report.javaBlocks.find(b => b.index === m.javaIndex))
+        .filter(Boolean);
+      const odSteps = odDetail ? findOdSteps(odDetail.steps, ev.step, blocks) : [];
+      scroll.appendChild(makePairedRow(ev.step, blocks, matches, odSteps, odDetail, warningVerdicts));
+    } else {
+      // Setup row: block not claimed by any step
+      if (!javaMatchedSet.has(ev.block.index)) scroll.appendChild(makeSetupRow(ev.block, isThreePane));
+    }
+  });
+
+  renderSummaryPane(report);
+}
+
+function renderSummaryPane(report) {
+  const pane        = document.getElementById('summary-pane');
+  const verdictCol  = document.getElementById('summary-verdict-col');
+  const body        = document.getElementById('summary-pane-body');
+  document.getElementById('summary-ticket').innerHTML = zephyrKeyLink(report.ticketKey);
+  pane.style.display = 'flex';
+  verdictCol.innerHTML = '';
+  body.innerHTML = '';
+
+  const { matched, warnings, unmatched } = report.summary;
+  const total    = report.zephyrSteps.length;
+
+  // FEEDBACK-LOOP: count false_positive/alias verdicts and bump them into matched.
+  // Revert: remove this block and replace adjustedMatched/adjustedWarnings/fpCount below with matched/warnings/0.
+  let fpCount = 0;
+  if (Array.isArray(report.analysis) && report.analysis.length > 0) {
+    const raw          = report.analysis.filter(a => a.verdict === 'false_positive' || a.verdict === 'alias').length;
+    const genuineCount = report.analysis.filter(a => a.verdict === 'genuine'        || a.verdict === 'ambiguous').length;
+    // Never promote so many FPs that we erase genuine gaps — always leave genuineCount warnings intact
+    fpCount = Math.min(raw, Math.max(0, warnings - genuineCount));
+  }
+  const adjustedMatched  = matched  + fpCount;
+  const adjustedWarnings = warnings - fpCount;
+
+  const coverage = total ? Math.round((adjustedMatched / total) * 100) : 0;
+  const coverageColor = coverage >= 80 ? '#4ec94e' : coverage >= 50 ? '#f0d060' : '#f07070';
+
+  // ── Left column: coverage % + counts (always visible) ───────────────────
+  verdictCol.innerHTML =
+    `<div class="summary-verdict-label">Coverage</div>` +
+    `<div class="summary-verdict-cov" style="color:${coverageColor}">${coverage}%</div>` +
+    `<div class="summary-verdict-counts">` +
+      `<span style="color:#4ec94e">✅ ${adjustedMatched} matched${fpCount > 0 ? ` <small style="color:#555">(+${fpCount} FP)</small>` : ''}</span>` +
+      `<span style="color:#f0d060">⚠ ${adjustedWarnings} warning${adjustedWarnings !== 1 ? 's' : ''}</span>` +
+      `<span style="color:#f07070">❌ ${unmatched} unmatched</span>` +
+    `</div>` +
+    `<div class="summary-verdict-text">${
+      unmatched === 0 && adjustedWarnings === 0
+        ? 'Full coverage — no gaps detected.'
+        : unmatched === 0
+          ? `All steps covered. ${adjustedWarnings} step${adjustedWarnings !== 1 ? 's have' : ' has'} a genuine warning.`
+          : `${unmatched} of ${total} step${unmatched !== 1 ? 's' : ''} not covered.`
+    }</div>`;
+
+  // ── Right column: use LLM analysis if available, else heuristic ─────────
+  const hasAnalysis = Array.isArray(report.analysis) && report.analysis.length > 0;
+  const warnItems   = report.matches.filter(m => m.status === 'warning' && m.issue);
+  const unmatchedSteps = report.matches.filter(m => m.status === 'unmatched' && m.zephyrIndex !== null);
+
+  if (hasAnalysis) {
+    // ── LLM-powered analysis ──────────────────────────────────────────────
+    const verdictCounts = {};
+    report.analysis.forEach(a => { verdictCounts[a.verdict] = (verdictCounts[a.verdict] || 0) + 1; });
+    const patternParts = [];
+    if (verdictCounts.genuine)        patternParts.push(`<strong>${verdictCounts.genuine}</strong> genuine gap${verdictCounts.genuine > 1 ? 's' : ''}`);
+    if (verdictCounts.false_positive) patternParts.push(`<strong>${verdictCounts.false_positive}</strong> false positive${verdictCounts.false_positive > 1 ? 's' : ''}`);
+    if (verdictCounts.alias)          patternParts.push(`<strong>${verdictCounts.alias}</strong> naming alias${verdictCounts.alias > 1 ? 'es' : ''}`);
+    if (verdictCounts.ambiguous)      patternParts.push(`<strong>${verdictCounts.ambiguous}</strong> ambiguous`);
+
+    const analysisSection = document.createElement('div');
+    analysisSection.className = 'summary-section';
+    analysisSection.innerHTML = `<h3>🔍 Warning Analysis</h3>`;
+    if (patternParts.length) {
+      analysisSection.innerHTML += `<div class="analysis-pattern">${patternParts.join(' · ')}</div>`;
+    }
+    const badgeCss   = { genuine:'badge-genuine', false_positive:'badge-false_positive', alias:'badge-alias', ambiguous:'badge-ambiguous' };
+    const badgeLabel = { genuine:'Coverage Gap', false_positive:'False Positive', alias:'Alias', ambiguous:'Ambiguous' };
+    report.analysis.forEach((a, i) => {
+      analysisSection.innerHTML +=
+        `<div class="analysis-row">` +
+          `<span class="warn-num-summary">${i + 1}</span>` +
+          `<span class="analysis-badge ${badgeCss[a.verdict] || 'badge-ambiguous'}">${badgeLabel[a.verdict] || a.verdict}</span>` +
+          `<span class="s-text"><strong>${a.stepLabel}:</strong> ${escHtml(a.reason)}</span>` +
+        `</div>`;
+    });
+    body.appendChild(analysisSection);
+  } else {
+    // ── Heuristic fallback ────────────────────────────────────────────────
+    if (warnItems.length > 0) {
+      const warnSection = document.createElement('div');
+      warnSection.className = 'summary-section';
+      warnSection.innerHTML = `<h3>⚠ Warnings (${warnItems.length})</h3>`;
+      warnItems.forEach(m => {
+        const stepLabel = m.zephyrIndex !== null ? `Step ${m.zephyrIndex + 1}` : `Block ${m.javaIndex + 1}`;
+        warnSection.innerHTML += `<div class="summary-row"><span class="s-icon" style="color:#f0d060">⚠</span><span class="s-text"><strong>${stepLabel}:</strong> ${escHtml(m.issue)}</span></div>`;
+      });
+      body.appendChild(warnSection);
+    }
+  }
+
+  // ── Unmatched steps (always shown when present) ──────────────────────────
+  if (unmatchedSteps.length > 0) {
+    const unmatchedSection = document.createElement('div');
+    unmatchedSection.className = 'summary-section';
+    unmatchedSection.innerHTML = `<h3>❌ Unmatched Steps (${unmatchedSteps.length})</h3>`;
+    unmatchedSteps.forEach(m => {
+      const step  = report.zephyrSteps[m.zephyrIndex];
+      const label = step ? (step.description.slice(0, 80) + (step.description.length > 80 ? '…' : '')) : `Step ${m.zephyrIndex + 1}`;
+      unmatchedSection.innerHTML += `<div class="summary-row"><span class="s-icon" style="color:#f07070">❌</span><span class="s-text"><strong>Step ${m.zephyrIndex + 1}:</strong> ${escHtml(label)}</span></div>`;
+    });
+    body.appendChild(unmatchedSection);
+  } else if (!hasAnalysis && warnItems.length === 0) {
+    body.innerHTML = `<div class="summary-row"><span class="s-icon">✅</span><span class="s-text">All steps matched with no warnings.</span></div>`;
+  }
+}
+
+function statusClass(s) { return { matched:'matched', warning:'warning', unmatched:'unmatched', setup:'setup' }[s] || 'setup'; }
+
+// ── Warning analysis: classify each warning using heuristics on matched Java source ──
+function analyseWarnings(report) {
+  const warnMatches = report.matches.filter(m => m.status === 'warning' && m.issue);
+  if (!warnMatches.length) return [];
+
+  return warnMatches.map(m => {
+    const iss = (m.issue || '').toLowerCase();
+    const stepLabel = m.zephyrIndex !== null ? `Step ${m.zephyrIndex + 1}` : `Block ${m.javaIndex + 1}`;
+
+    // Collect raw source of all Java blocks mapped to the same Zephyr step
+    const stepMatches = report.matches.filter(sm =>
+      sm.zephyrIndex === m.zephyrIndex && sm.javaIndex !== null);
+    const allRaw = stepMatches.map(sm => {
+      const b = report.javaBlocks.find(b => b.index === sm.javaIndex);
+      return b ? (b.rawText || '') + ' ' + b.asserts.join(' ') : '';
+    }).join('\n').toLowerCase();
+
+    // 1. Customer-site / WebAPI call missing
+    if ((iss.includes('customer site') || iss.includes('webapi') || iss.includes('customerwebapi'))
+        && !allRaw.includes('customerwebapi')) {
+      return { m, stepLabel, type: 'customer',
+        typeLabel: 'Missing customer-site call',
+        detail: 'No customerWebApi call found in matched blocks. A WebAPI / customer-site check is expected.' };
+    }
+
+    // 2. Dealer-site call missing
+    if ((iss.includes('dealer') || iss.includes('dealer site')) && !allRaw.includes('dealerwebapi')) {
+      return { m, stepLabel, type: 'genuine',
+        typeLabel: 'Missing dealer-site call',
+        detail: 'No dealerWebApi call found in matched blocks.' };
+    }
+
+    // 3. Specific enum / event type not in matched Java
+    const enumHits = (m.issue || '').match(/Enum\s+\d+|EventType\.\w+|EventTypeHistory\.\w+/g);
+    if (enumHits) {
+      const presentInJava = enumHits.some(e =>
+        allRaw.includes(e.toLowerCase().replace(/\s+/g, '')));
+      if (!presentInJava) {
+        return { m, stepLabel, type: 'enum',
+          typeLabel: 'Missing enum / event type',
+          detail: `Expected event (${enumHits.join(', ')}) not found in matched Java assertions.` };
+      }
+    }
+
+    // 4. Method name in issue has a similar stem in the Java (naming alias candidate)
+    const methodHits = (m.issue || '').match(/\b(?:get|check|assert|verify|is)[A-Za-z]{4,}/gi);
+    if (methodHits) {
+      const similarInJava = methodHits.some(fn => {
+        const stem = fn.toLowerCase().replace(/^(get|check|assert|verify|is)/, '');
+        return stem.length > 3 && allRaw.includes(stem);
+      });
+      if (similarInJava) {
+        return { m, stepLabel, type: 'alias',
+          typeLabel: 'Possible naming alias',
+          detail: 'Similar functionality detected in Java under a different method name — may be a false positive.' };
+      }
+    }
+
+    // 5. Issue text signals ambiguity
+    if (iss.includes('not explicitly') || iss.includes('unclear') || iss.includes('ambiguous')) {
+      return { m, stepLabel, type: 'ambiguous',
+        typeLabel: 'Ambiguous',
+        detail: m.issue };
+    }
+
+    // Default: genuine gap
+    return { m, stepLabel, type: 'genuine',
+      typeLabel: 'Likely genuine gap',
+      detail: m.issue };
+  });
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Strip the opening REPORT(...); line from a raw Java block chunk so we can
+// display the full block body (action calls + asserts) without duplicating the title.
+function blockBody(rawText) {
+  return (rawText || '').replace(/^REPORT\s*\([\s\S]*?\)\s*;\s*\n?/, '').trim();
+}
+
+// ─── Paired-row builders ──────────────────────────────────────────────────────
+// blocks: array of javaBlock objects (may be 0, 1, or many)
+// matches: array of match objects from the LLM for this Zephyr step
+// odSteps: array of OD execution step objects matched to this row
+// odDetail: optional full OD detail (for failMessage)
+// warningVerdicts: Map<"zIdx:rIdx" | "zIdx:*", verdict> — from FEEDBACK-LOOP build in renderAuditView
+function makePairedRow(step, blocks, matches, odSteps, odDetail, warningVerdicts = new Map()) {
+  // Aggregate status: worst across all matches
+  const status = matches.length === 0 ? 'unmatched'
+    : matches.some(m => m.status === 'unmatched') ? 'unmatched'
+    : matches.some(m => m.status === 'warning')   ? 'warning'
+    : 'matched';
+
+  const row = document.createElement('div');
+  row.className = 'pair-row';
+
+  // ── OD execution cell (leftmost when in 3-pane) ──────────────────────────
+  if (odSteps && odSteps.length > 0) {
+    // Worst result across all OD steps for this row
+    const worstResult = odSteps.some(s => s.result === 'failed') ? 'failed'
+      : odSteps.some(s => s.result === 'passed') ? 'passed' : 'unknown';
+    const odCss  = worstResult === 'failed' ? 'unmatched' : worstResult === 'passed' ? 'matched' : 'setup';
+    const odCell = document.createElement('div');
+    odCell.className = `pair-cell od-cell ${odCss}`;
+    let odHtml = '';
+    odSteps.forEach(odStep => {
+      const isOdFailed = odStep.result === 'failed';
+      const icon = isOdFailed ? '❌' : odStep.result === 'passed' ? '✅' : '⏩';
+      odHtml +=
+        `<div class="od-exec-result">` +
+          `<span class="od-exec-icon">${icon}</span>` +
+          `<span class="cell-title">${escHtml(odStep.text)}</span>` +
+        `</div>` +
+        `<div class="od-exec-meta">${escHtml(odStep.timestamp)}${odStep.duration ? ' · ' + escHtml(odStep.duration) : ''}</div>`;
+      if (isOdFailed && odDetail && odDetail.failMessage) {
+        odHtml += `<div class="od-fail-msg">${escHtml(odDetail.failMessage)}</div>`;
+      }
+    });
+    odCell.innerHTML = odHtml;
+    row.appendChild(odCell);
+  } else if (document.getElementById('audit-view').classList.contains('three-pane')) {
+    // 3-pane mode but no matching OD step for this Zephyr step
+    const odCell = document.createElement('div');
+    odCell.className = 'pair-cell od-nodata';
+    odCell.textContent = 'No OD step';
+    row.appendChild(odCell);
+  }
+
+  // ── Zephyr step cell ──────────────────────────────────────────────────────
+  const left = document.createElement('div');
+  // FEEDBACK-LOOP: if every warning on this step has been cleared (false_positive/alias),
+  // show fp-cleared (teal-green) instead of warning (amber). Revert: replace with statusClass(status).
+  const effectiveStatusClass = (() => {
+    if (status !== 'warning') return statusClass(status);
+    const warnMatches = matches.filter(m => m.status === 'warning' && m.issue);
+    if (warnMatches.length === 0) return statusClass(status);
+    const allCleared = warnMatches.every(m => {
+      const key = m.req != null ? `${step.index}:${m.req}` : `${step.index}:*`;
+      const v   = warningVerdicts.get(key);
+      return v?.verdict === 'false_positive' || v?.verdict === 'alias';
+    });
+    return allCleared ? 'fp-cleared' : 'warning';
+  })();
+  left.className = `pair-cell ${effectiveStatusClass}`;
+  left.dataset.zephyrIndex = step.index;
+
+  const issues   = matches.map(m => m.issue).filter(Boolean);
+  const bestConf = matches.length ? Math.max(...matches.map(m => m.confidence ?? 0)) : undefined;
+
+  // ── Build the four-section body ──────────────────────────────────────────
+  // Sections present depends on whether the step has automation sub-sections.
+  // Steps without automation content fall back to a simple description + expectedResult.
+  const hasAutoSections = !!(step.automationStep || step.automationResult);
+
+  let cellHtml = `<div class="cell-label">STEP ${step.index + 1}</div>`;
+
+  if (hasAutoSections) {
+    // Manual step (intent) — always shown when non-empty
+    if (step.manualStep) {
+      cellHtml +=
+        `<div class="step-section manual">` +
+          `<div class="step-section-label">Manual Step</div>` +
+          `<div class="step-section-body">${escHtml(step.manualStep)}</div>` +
+        `</div>`;
+    }
+    // Automation step (what runs)
+    if (step.automationStep) {
+      cellHtml +=
+        `<div class="step-section auto">` +
+          `<div class="step-section-label">Automation Step</div>` +
+          `<div class="step-section-body">${escHtml(step.automationStep)}</div>` +
+        `</div>`;
+    }
+
+    cellHtml += `<hr class="step-divider">`;
+
+    // Manual result (objective) — always shown when non-empty
+    if (step.manualResult) {
+      cellHtml +=
+        `<div class="step-section manual">` +
+          `<div class="step-section-label">Expected Result</div>` +
+          `<div class="step-section-body">${escHtml(step.manualResult)}</div>` +
+        `</div>`;
+    }
+    // Automation result — per-requirement highlights (source of truth)
+    if (step.requirements && step.requirements.length > 0) {
+      // Accumulate ALL warn issues per req index (a single bullet may have multiple checks)
+      const reqWarnings = {};
+      matches.forEach(m => {
+        if (m.req != null && m.issue) {
+          if (!reqWarnings[m.req]) reqWarnings[m.req] = [];
+          reqWarnings[m.req].push(m.issue);
+        }
+      });
+      const allUnmatched = status === 'unmatched';
+      const reqs = step.requirements.map((req, ri) => {
+        const issues = reqWarnings[ri];
+        if (issues) {
+          const tooltip = issues.map((iss, n) => issues.length > 1 ? `${n + 1}. ${iss}` : iss).join('\n');
+          const entry = warningVerdicts.get(`${step.index}:${ri}`) ?? warningVerdicts.get(`${step.index}:*`);
+          const verd  = entry?.verdict;
+          const num   = entry?.num;
+          const cls   = (verd === 'false_positive' || verd === 'alias') ? 'req-warn-fp' : 'req-warn';
+          const sup   = num != null ? `<span class="warn-num">${num}</span>` : '';
+          return `<span class="req-item ${cls}" data-issue="${escHtml(tooltip)}"><span class="req-bullet">▸</span>${escHtml(req)}${sup}</span>`;
+        }
+        if (allUnmatched) {
+          return `<span class="req-item req-miss"><span class="req-bullet">▸</span>${escHtml(req)}</span>`;
+        }
+        return `<span class="req-item req-ok"><span class="req-bullet">▸</span>${escHtml(req)}</span>`;
+      }).join('');
+      cellHtml +=
+        `<div class="step-section auto">` +
+          `<div class="step-section-label">Automation Result</div>` +
+          `<div class="cell-reqs">${reqs}</div>` +
+        `</div>`;
+    }
+  } else {
+    // No automation sections — simple legacy render
+    cellHtml += `<div class="cell-title">${escHtml(step.description)}</div>`;
+    if (step.requirements && step.requirements.length > 0) {
+      const reqWarnings = {};
+      matches.forEach(m => {
+        if (m.req != null && m.issue) {
+          if (!reqWarnings[m.req]) reqWarnings[m.req] = [];
+          reqWarnings[m.req].push(m.issue);
+        }
+      });
+      const allUnmatched = status === 'unmatched';
+      const reqs = step.requirements.map((req, ri) => {
+        const issues = reqWarnings[ri];
+        if (issues) {
+          const tooltip = issues.map((iss, n) => issues.length > 1 ? `${n + 1}. ${iss}` : iss).join('\n');
+          const entry = warningVerdicts.get(`${step.index}:${ri}`) ?? warningVerdicts.get(`${step.index}:*`);
+          const verd  = entry?.verdict;
+          const num   = entry?.num;
+          const cls   = (verd === 'false_positive' || verd === 'alias') ? 'req-warn-fp' : 'req-warn';
+          const sup   = num != null ? `<span class="warn-num">${num}</span>` : '';
+          return `<span class="req-item ${cls}" data-issue="${escHtml(tooltip)}"><span class="req-bullet">▸</span>${escHtml(req)}${sup}</span>`;
+        }
+        if (allUnmatched) {
+          return `<span class="req-item req-miss"><span class="req-bullet">▸</span>${escHtml(req)}</span>`;
+        }
+        return `<span class="req-item req-ok"><span class="req-bullet">▸</span>${escHtml(req)}</span>`;
+      }).join('');
+      cellHtml += `<div class="cell-reqs">${reqs}</div>`;
+    } else if (step.expectedResult) {
+      cellHtml += `<div class="cell-detail">${escHtml(step.expectedResult)}</div>`;
+    }
+  }
+
+  if (bestConf !== undefined) cellHtml += `<span class="cell-conf">${bestConf}%</span>`;
+
+  left.innerHTML = cellHtml;
+
+  // Wire tooltip + flash interactions for both genuine (req-warn) and dimmed FP (req-warn-fp) items
+  left.querySelectorAll('.req-warn, .req-warn-fp').forEach(el => {
+    el.addEventListener('mouseenter', e => showTooltip(e, el.dataset.issue));
+    el.addEventListener('mousemove',  moveTooltip);
+    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      el.classList.remove('req-flash');
+      void el.offsetWidth; // force reflow to restart animation
+      el.classList.add('req-flash');
+      setTimeout(() => el.classList.remove('req-flash'), 700);
+    });
+  });
+
+  // FEEDBACK-LOOP: only show Edit in Zephyr when there are genuine/ambiguous warnings remaining.
+  // Revert: restore original condition `if (status === 'warning' || status === 'unmatched')`.
+  const hasGenuineWarnings = matches.some(m => {
+    if (m.status !== 'warning' || !m.issue) return false;
+    const key = m.req != null ? `${step.index}:${m.req}` : `${step.index}:*`;
+    const v   = warningVerdicts.get(key)?.verdict;
+    return !v || v === 'genuine' || v === 'ambiguous';
+  });
+  if (status === 'unmatched' || hasGenuineWarnings) {
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'margin-top:8px;font-size:10px;padding:3px 10px;';
+    editBtn.textContent = '✏ Edit in Zephyr';
+    editBtn.addEventListener('click', e => { e.stopPropagation(); openEditModal(step, matches[0] ?? null); });
+    left.appendChild(editBtn);
+  }
+
+  // ── Java blocks cell (rightmost) ──────────────────────────────────────────
+  let right;
+  if (blocks.length === 0) {
+    right = document.createElement('div');
+    right.className = 'pair-cell empty';
+    right.textContent = 'No automation coverage';
+  } else {
+    right = document.createElement('div');
+    right.className = `pair-cell ${effectiveStatusClass}`;
+    blocks.forEach(block => {
+      const sub = document.createElement('div');
+      sub.className = 'java-sub-block';
+      sub.dataset.javaIndex = block.index;
+      const blockMatch = matches.find(m => m.javaIndex === block.index);
+      const bmEntry    = blockMatch ? (warningVerdicts.get(`${blockMatch.zephyrIndex}:${blockMatch.req}`) ?? warningVerdicts.get(`${blockMatch.zephyrIndex}:*`)) : null;
+      const bmNum      = bmEntry?.num;
+      sub.innerHTML =
+        (blocks.length > 1 ? `<div class="sub-label">JAVA BLOCK ${block.index + 1}</div>` : `<div class="cell-label">JAVA BLOCK ${block.index + 1}</div>`) +
+        `<div class="cell-title">${escHtml(block.report)}</div>` +
+        (blockBody(block.rawText) ? `<div class="cell-asserts">${escHtml(blockBody(block.rawText))}</div>` : '') +
+        (blockMatch?.issue ? `<div class="cell-issue">${bmNum != null ? `<span class="warn-num-summary">${bmNum}</span>` : ''}⚠ ${escHtml(blockMatch.issue)}</div>` : '');
+      right.appendChild(sub);
+    });
+  }
+
+  addPairInteraction(left, right, matches);
+  row.appendChild(left);
+
+
+
+  row.appendChild(right);
+  return row;
+}
+
+
+
+function makeSetupRow(block, isThreePane) {
+  const row  = document.createElement('div');
+  row.className = 'pair-row';
+
+  if (isThreePane) {
+    const odPlaceholder = document.createElement('div');
+    odPlaceholder.className = 'pair-cell od-nodata';
+    odPlaceholder.textContent = '—';
+    row.appendChild(odPlaceholder);
+  }
+
+  const left = document.createElement('div');
+  left.className = 'pair-cell empty';
+  left.textContent = 'Setup / no Zephyr step';
+
+  const right = document.createElement('div');
+  right.className = 'pair-cell setup';
+  right.dataset.javaIndex = block.index;
+  right.innerHTML =
+    `<div class="cell-label">JAVA BLOCK ${block.index + 1} — SETUP</div>` +
+    `<div class="cell-title">${escHtml(block.report)}</div>` +
+    (blockBody(block.rawText) ? `<div class="cell-asserts">${escHtml(blockBody(block.rawText))}</div>` : '');
+
+  row.appendChild(left);
+  row.appendChild(right);
+  return row;
+}
+
+// ─── Pair interaction (hover highlight + tooltip) ─────────────────────────────
+// matches is an array; rightCell may contain multiple .java-sub-block children
+function addPairInteraction(leftCell, rightCell, matches) {
+  const tooltipText = matches.length
+    ? `Confidence: ${Math.max(...matches.map(m => m.confidence ?? 0))}%` +
+      (matches.length > 1 ? ` (${matches.length} blocks)` : '') +
+      matches.filter(m => m.issue).map(m => '\n⚠ ' + m.issue).join('')
+    : null;
+
+  [leftCell, rightCell].forEach((cell, i) => {
+    const other = i === 0 ? rightCell : leftCell;
+    cell.addEventListener('mouseenter', e => {
+      if (!other.classList.contains('empty')) other.classList.add('highlighted');
+      if (tooltipText) showTooltip(e, tooltipText);
+    });
+    cell.addEventListener('mousemove', moveTooltip);
+    cell.addEventListener('mouseleave', () => { other.classList.remove('highlighted'); hideTooltip(); });
+  });
+}
+
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+function showTooltip(e, text) { tooltip.style.display = 'block'; tooltip.textContent = text; positionTooltip(e); }
+function moveTooltip(e) { positionTooltip(e); }
+function positionTooltip(e) { tooltip.style.left = (e.clientX + 14) + 'px'; tooltip.style.top = (e.clientY + 14) + 'px'; }
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// ─── Folder audit ─────────────────────────────────────────────────────────────
+const fpPanel       = document.getElementById('folder-audit-panel');
+const fpCloseBtn    = document.getElementById('fp-close-btn');
+const fpTitle       = document.getElementById('fp-title');
+const fpFill        = document.getElementById('fp-progress-fill');
+const fpLabel       = document.getElementById('fp-progress-label');
+const fpTotals      = document.getElementById('fp-totals');
+const fpResults     = document.getElementById('fp-results');
+const fpExportBar   = document.getElementById('fp-export-bar');
+const fpExportBtn   = document.getElementById('fp-export-btn');
+const fpGate        = document.getElementById('fp-gate');
+const fpContextInput = document.getElementById('fp-context-input');
+const fpStartBtn    = document.getElementById('fp-start-btn');
+const fpSkipBtn     = document.getElementById('fp-skip-btn');
+const fpProgressWrap = document.getElementById('fp-progress-wrap');
+const fpColHeader   = document.getElementById('fp-col-header');
+const fpTMatched    = document.getElementById('fp-t-matched');
+const fpTWarned     = document.getElementById('fp-t-warned');
+const fpTUnmatched  = document.getElementById('fp-t-unmatched');
+const fpTFiles      = document.getElementById('fp-t-files');
+const fpTSkipped    = document.getElementById('fp-t-skipped');
+let   fpExportData  = [];
+let   pendingFolderNodes = [];   // array of nodes for multi-folder runs
+const selectedFolders = new Map(); // folderPath → node, for checkbox selection
+
+function updateMultiFolderBar() {
+  const bar   = document.getElementById('multi-folder-bar');
+  const count = document.getElementById('multi-folder-count');
+  const n = selectedFolders.size;
+  if (n === 0) {
+    bar.classList.remove('visible');
+  } else {
+    bar.classList.add('visible');
+    count.textContent = `${n} folder${n > 1 ? 's' : ''} selected`;
+  }
+}
+
+document.getElementById('multi-folder-run').addEventListener('click', () => {
+  if (selectedFolders.size === 0) return;
+  runFolderAudit([...selectedFolders.values()]);
+});
+
+document.getElementById('multi-folder-clear').addEventListener('click', () => {
+  selectedFolders.clear();
+  // Uncheck all checkboxes
+  document.querySelectorAll('.folder-check').forEach(c => { c.checked = false; });
+  updateMultiFolderBar();
+});
+
+fpCloseBtn.addEventListener('click', () => {
+  fpPanel.classList.remove('open');
+  if (folderAuditAbort) { folderAuditAbort(); folderAuditAbort = null; }
+  pendingFolderNodes = [];
+});
+
+document.getElementById('folder-recall-btn').addEventListener('click', () => {
+  fpPanel.classList.add('open');
+});
+
+fpStartBtn.addEventListener('click', () => {
+  if (pendingFolderNodes.length) {
+    startFolderAudit(pendingFolderNodes, (fpContextInput.value || '').trim());
+  }
+});
+
+fpSkipBtn.addEventListener('click', () => {
+  fpContextInput.value = '';
+  if (pendingFolderNodes.length) {
+    startFolderAudit(pendingFolderNodes, '');
+  }
+});
+
+function covColor(pct) {
+  if (pct >= 80) return '#4ec94e';
+  if (pct >= 50) return '#f0c040';
+  return '#e05050';
+}
+
+// Recursively collect all leaf sub-folder nodes from a parent node.
+// A "leaf folder" is one that the server will find files in (i.e. it has no folder children,
+// OR it has folder children but also direct files — we include it only if it has no sub-folders
+// so each section maps to exactly one server call).
+// displayName is the path relative to the selected parent, e.g. "Group10 / SubGroupA".
+function collectSubFolders(node, parentDisplayName = '') {
+  const displayName = parentDisplayName ? `${parentDisplayName} / ${node.name}` : node.name;
+  const folderChildren = (node.children || []).filter(c => c.type === 'folder');
+  if (folderChildren.length === 0) {
+    // Leaf folder — run it directly
+    return [{ ...node, displayName }];
+  }
+  // Has sub-folders — recurse into each, don't add the parent itself
+  // (the server would duplicate results if we ran both parent and children)
+  return folderChildren.flatMap(child => collectSubFolders(child, displayName));
+}
+
+// Expand an array of selected nodes: parent folders with children become lists of leaf sub-folders.
+function expandNodes(nodes) {
+  return nodes.flatMap(node => {
+    const folderChildren = (node.children || []).filter(c => c.type === 'folder');
+    if (folderChildren.length === 0) return [{ ...node, displayName: node.name }];
+    return collectSubFolders(node);
+  });
+}
+
+// nodes: array of folder nodes (single-folder call passes [node])
+function runFolderAudit(nodes) {
+  // Expand parent folders into their leaf sub-folders for grouped display
+  const expanded = expandNodes(nodes);
+  pendingFolderNodes = expanded;
+  activeFolderAuditContext = '';
+  document.getElementById('folder-recall-bar').style.display = 'none';
+  if (folderAuditAbort) { folderAuditAbort(); folderAuditAbort = null; }
+
+  const rootNames = nodes.map(n => n.name).join(', ');
+  const title = expanded.length === nodes.length && nodes.length === 1
+    ? `📂 ${nodes[0].name}`
+    : `📂 ${rootNames} (${expanded.length} sub-folders)`;
+  fpTitle.textContent = title;
+  fpResults.innerHTML = '';
+  fpExportData = [];
+  fpTotals.style.display = 'none';
+  fpExportBar.style.display = 'none';
+  fpProgressWrap.style.display = 'none';
+  fpColHeader.style.display = 'none';
+  document.getElementById('fp-coverage-note').style.display = 'none';
+  fpFill.style.width = '0%';
+  fpLabel.textContent = 'Ready';
+  fpGate.style.display = 'block';
+  fpPanel.classList.add('open');
+  fpContextInput.focus();
+}
+
+// Run audit across all nodes sequentially, appending results into one panel.
+function startFolderAudit(nodes, userContext = '') {
+  pendingFolderNodes = nodes;
+  activeFolderAuditContext = userContext;
+  fpGate.style.display = 'none';
+  fpProgressWrap.style.display = 'block';
+  fpColHeader.style.display = 'grid';
+  fpLabel.textContent = 'Starting…';
+
+  let   globalDone = 0, globalTotal = 0;
+  let   totalMatched = 0, totalWarned = 0, totalUnmatched = 0, totalSkipped = 0, totalFiles = 0;
+  let   aborted = false;
+  const nodesToRun = [...nodes];
+
+  folderAuditAbort = () => { aborted = true; fpLabel.textContent = 'Cancelled.'; };
+
+  function runNext() {
+    if (aborted || nodesToRun.length === 0) {
+      // All done
+      fpFill.style.width = '100%';
+      fpLabel.textContent = `Complete — ${totalFiles} audited, ${totalSkipped} skipped`;
+      fpTotals.style.display = 'flex';
+      document.getElementById('fp-coverage-note').style.display = 'block';
+      fpTMatched.textContent   = totalMatched;
+      fpTWarned.textContent    = totalWarned;
+      fpTUnmatched.textContent = totalUnmatched;
+      fpTFiles.textContent     = totalFiles;
+      fpTSkipped.textContent   = totalSkipped;
+      fpExportBar.style.display = 'block';
+      folderAuditAbort = null;
+      return;
+    }
+
+    const node = nodesToRun.shift();
+
+    // Always show a section divider so each sub-folder is clearly labelled
+    // (nodes here is the already-expanded flat list, so length > 1 means multiple sections)
+    if (nodes.length > 1) {
+      const divider = document.createElement('div');
+      divider.style.cssText = 'padding:4px 10px;font-size:10px;font-weight:700;color:#6ab0f5;' +
+        'background:#0e639c18;border-top:1px solid #0e639c33;border-bottom:1px solid #0e639c22;' +
+        'letter-spacing:.04em;text-transform:uppercase;';
+      divider.textContent = `📂 ${node.displayName || node.name}`;
+      fpResults.appendChild(divider);
+    }
+
+    const folderPath = node.folderPath || '';
+    const MAX_CTX_PARAM = 1800;
+    const encodedCtx = userContext ? encodeURIComponent(userContext) : '';
+    const ctxParam   = encodedCtx && encodedCtx.length <= MAX_CTX_PARAM ? `&userContext=${encodedCtx}` : '';
+    if (encodedCtx && encodedCtx.length > MAX_CTX_PARAM) {
+      console.warn('Folder audit context too large for SSE URL — omitted. Use a shorter context.');
+    }
+    const url = `/api/folder-audit?folder=${encodeURIComponent(folderPath)}${ctxParam}`;
+    const es  = new EventSource(url);
+    let   folderTotal = 0;
+
+    es.onmessage = (e) => {
+      if (aborted) { es.close(); return; }
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'start') {
+        folderTotal   = msg.total;
+        globalTotal  += msg.total;
+        fpLabel.textContent = `${node.name}: 0 / ${msg.total} files…`;
+      }
+
+      if (msg.type === 'progress') {
+        fpLabel.textContent = `${node.name}: ${msg.done} / ${folderTotal} files…`;
+        const pct = Math.round(((globalDone + msg.done) / Math.max(globalTotal, 1)) * 100);
+        fpFill.style.width = pct + '%';
+      }
+
+      if (msg.type === 'result') {
+        globalDone++;
+        const pct = Math.round((globalDone / Math.max(globalTotal, 1)) * 100);
+        fpFill.style.width = pct + '%';
+        fpLabel.textContent = `${node.name}: ${msg.done} / ${folderTotal} files…`;
+        fpExportData.push({ ...msg, folderName: node.name });
+        if (msg.report) {
+          const ghUrl = (githubRepo && githubBranch && msg.path)
+            ? `https://github.com/${githubRepo}/blob/${githubBranch}/${msg.path}` : '';
+          auditResultCache.set(msg.filename, { report: msg.report, filename: msg.filename, githubUrl: ghUrl });
+        }
+        const shortName = msg.filename.replace(/Test\.java$/, '').replace(/\.java$/, '');
+        const row = document.createElement('div');
+        row.className = 'fp-row';
+        row.dataset.filename = msg.filename;
+        row.innerHTML =
+          `<span class="fp-name" title="${escHtml(msg.filename)}">${escHtml(shortName)}</span>` +
+          `<span class="fp-key">${zephyrKeyLink(msg.ticketKey)}</span>` +
+          `<span class="fp-num" style="color:#4ec94e">${msg.matched}</span>` +
+          `<span class="fp-num" style="color:#f0c040">${msg.warnings}</span>` +
+          `<span class="fp-num" style="color:#e05050">${msg.unmatched}</span>` +
+          `<span class="fp-cov" style="color:${covColor(msg.coverage)}">${msg.coverage}%</span>` +
+          `<span class="fp-adj">—</span>`;
+        row.title = `${msg.matched} matched · ${msg.warnings} warnings · ${msg.unmatched} unmatched of ${msg.totalSteps} steps`;
+        row.addEventListener('click', () => { fpPanel.classList.remove('open'); document.getElementById('folder-recall-bar').style.display = 'flex'; fetchAndAuditByPath(msg.filename, msg.ticketKey); });
+        fpResults.appendChild(row);
+        fpResults.scrollTop = fpResults.scrollHeight;
+      }
+
+      if (msg.type === 'analysis') {
+        // Batch analysis arrived — patch the cached report and update summary if currently viewing
+        const cached = auditResultCache.get(msg.filename);
+        if (cached) {
+          cached.report.analysis = msg.analysis;
+          // If this file is currently open in the audit view, re-render the summary pane
+          // and patch warning text colors in the already-rendered step rows.
+          if (auditReport && auditReport.ticketKey === msg.ticketKey) {
+            auditReport.analysis = msg.analysis;
+            renderSummaryPane(auditReport);
+            // Patch req-warn ↔ req-warn-fp classes in place so false positives turn green
+            // without a full re-render. Each analysis item corresponds positionally to
+            // warning match i+1 stamped as .warn-num inside the req-item span.
+            msg.analysis.forEach((a, i) => {
+              const num  = i + 1;
+              const isFp = a.verdict === 'false_positive' || a.verdict === 'alias';
+              document.querySelectorAll('.req-item').forEach(el => {
+                const numEl = el.querySelector('.warn-num');
+                if (numEl && numEl.textContent == num) {
+                  el.classList.toggle('req-warn',    !isFp);
+                  el.classList.toggle('req-warn-fp',  isFp);
+                }
+              });
+            });
+          }
+          // Update the folder results row — populate the Adj. Cov column
+          const fpRow = fpResults.querySelector(`[data-filename="${CSS.escape(msg.filename)}"]`);
+          if (fpRow) {
+            const r            = cached.report;
+            const total        = r.zephyrSteps.length;
+            const rawFp        = msg.analysis.filter(a => a.verdict === 'false_positive' || a.verdict === 'alias').length;
+            const genuineCount = msg.analysis.filter(a => a.verdict === 'genuine'        || a.verdict === 'ambiguous').length;
+            const fpCount      = Math.min(rawFp, Math.max(0, r.summary.warnings - genuineCount));
+            const adjMatched = r.summary.matched + fpCount;
+            const adjCov     = total ? Math.round((adjMatched / total) * 100) : 0;
+            const adjSpan    = fpRow.querySelector('.fp-adj');
+            if (adjSpan) {
+              adjSpan.textContent = adjCov + '%';
+              adjSpan.style.color = covColor(adjCov);
+              adjSpan.style.fontStyle = 'normal';
+            }
+            fpRow.title = `${adjMatched} matched (${fpCount} FP promoted) · ${r.summary.warnings - fpCount} genuine warnings · ${r.summary.unmatched} unmatched of ${total} steps`;
+          }
+        }
+      }
+
+      if (msg.type === 'error') {
+        globalDone++;
+        const row = document.createElement('div');
+        row.className = 'fp-row fp-err';
+        row.innerHTML =
+          `<span class="fp-name" title="${escHtml(msg.error)}">${escHtml(msg.filename)}</span>` +
+          `<span class="fp-key" style="color:#e05050">error</span>` +
+          `<span class="fp-cov">—</span><span class="fp-num">—</span><span class="fp-num">—</span>`;
+        fpResults.appendChild(row);
+      }
+
+      if (msg.type === 'done') {
+        totalMatched   += msg.totals.matched;
+        totalWarned    += msg.totals.warned;
+        totalUnmatched += msg.totals.unmatched;
+        totalFiles     += msg.totals.files;
+        totalSkipped   += msg.totals.skipped;
+        es.close();
+        runNext(); // kick off next folder
+      }
+
+      if (msg.type === 'fatal') {
+        fpLabel.textContent = `Error (${node.name}): ${msg.error}`;
+        es.close();
+        runNext(); // continue with remaining folders even if one fails
+      }
+    };
+
+    es.onerror = () => {
+      if (!aborted) { fpLabel.textContent = `Connection lost (${node.name}).`; }
+      es.close();
+      if (!aborted) runNext();
+    };
+  }
+
+  runNext();
+}
+
+fpExportBtn.addEventListener('click', () => {
+  const lines = [
+    ['Folder', 'Test Name', 'Ticket Key', 'Coverage %', 'Matched', 'Warnings', 'Unmatched', 'Total Steps'],
+    ...fpExportData.map(r => [
+      r.folderName || '',
+      r.filename.replace(/Test\.java$/, '').replace(/\.java$/, ''),
+      r.ticketKey,
+      r.coverage,
+      r.matched,
+      r.warnings,
+      r.unmatched,
+      r.totalSteps,
+    ])
+  ];
+  const csv = lines.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const stem = fpTitle.textContent.replace(/^📂\s*/, '').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
+  a.download = `${stem}_audit.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// Open the file from a folder-audit row click (no prior tree selection needed)
+async function fetchAndAuditByPath(filename, ticketKey) {
+  // Use cached report from folder audit — no need to re-run the LLM
+  const cached = auditResultCache.get(filename);
+  if (cached) {
+    auditReport = cached.report;
+    activeOdDetail = null;
+    currentGithubUrl = cached.githubUrl || '';
+    renderAuditView(auditReport, cached.filename);
+    return;
+  }
+  // Fallback: fetch + re-audit (file not in cache)
+  const allFiles = [];
+  function collect(nodes) { nodes.forEach(n => { if (n.type === 'file') allFiles.push(n); else collect(n.children || []); }); }
+  collect(fileTree);
+  const node = allFiles.find(f => f.filename === filename) || { filename, path: null, ticketKey };
+  if (node.path) { selectFile(node, { autoFetch: true, userContext: activeFolderAuditContext || '' }); }
+}
+
+// ─── Edit modal ───────────────────────────────────────────────────────────────
+function openEditModal(step, match) {
+  editingStep  = { stepIndex: step.index, description: step.description, expectedResult: step.expectedResult };
+  modalStepNum.textContent  = step.index + 1;
+  modalDesc.value           = step.description;
+  modalExpected.value       = step.expectedResult;
+  if (match?.issue) {
+    modalIssueNote.style.display = 'block';
+    modalIssueNote.textContent   = `Audit note: ${match.issue}`;
+  } else {
+    modalIssueNote.style.display = 'none';
+  }
+  editBackdrop.classList.add('open');
+  modalDesc.focus();
+}
+function closeModal() { editBackdrop.classList.remove('open'); editingStep = null; }
+
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop) { closeModal(); } });
+
+document.getElementById('modal-save-btn').addEventListener('click', async () => {
+  if (!editingStep || !auditReport) { return; }
+  editingStep.description    = modalDesc.value;
+  editingStep.expectedResult = modalExpected.value;
+  auditStatus.textContent    = `Saving step ${editingStep.stepIndex + 1} to Zephyr…`;
+  try {
+    await api('PUT', '/api/step', {
+      ticketKey:      auditReport.ticketKey,
+      stepIndex:      editingStep.stepIndex,
+      description:    editingStep.description,
+      expectedResult: editingStep.expectedResult,
+    });
+    auditStatus.textContent = `✅ Saved to Zephyr`;
+    if (auditReport) {
+      auditReport.zephyrSteps[editingStep.stepIndex].description    = editingStep.description;
+      auditReport.zephyrSteps[editingStep.stepIndex].expectedResult = editingStep.expectedResult;
+      // currentGithubUrl already set from original load — reuse it
+      renderAuditView(auditReport, document.getElementById('java-filename').textContent, activeOdDetail);
+    }
+  } catch (err) {
+    auditStatus.textContent = `❌ Save failed: ${err.message}`;
+  }
+  closeModal();
+});
+
+// ─── Landing / Mode navigation ────────────────────────────────────────────────
+function showLanding() {
+  document.getElementById('landing-page').style.display = 'flex';
+  document.getElementById('mode-1').style.display = 'none';
+  document.getElementById('mode-3').style.display = 'none';
+  const backBtn = document.getElementById('mode1-back-btn');
+  if (backBtn) { backBtn.textContent = '← Back'; backBtn._fromOdRun = false; }
+  const mode1Title = document.querySelector('#mode-1 h1');
+  if (mode1Title) mode1Title.textContent = '☕ Automated vs OD';
+}
+
+function mode1Back() {
+  const backBtn = document.getElementById('mode1-back-btn');
+  if (backBtn && backBtn._fromOdRun) {
+    returnToOdRun();
+  } else {
+    showLanding();
+  }
+}
+
+function returnToOdRun() {
+  const backBtn = document.getElementById('mode1-back-btn');
+  if (backBtn) { backBtn.textContent = '← Back'; backBtn._fromOdRun = false; }
+  const mode1Title = document.querySelector('#mode-1 h1');
+  if (mode1Title) mode1Title.textContent = '☕ Automated vs OD';
+  selectMode(3);
+}
+
+function selectMode(mode) {
+  document.getElementById('landing-page').style.display = 'none';
+  document.getElementById('mode-1').style.display = mode === 1 ? 'flex' : 'none';
+  document.getElementById('mode-3').style.display = mode === 3 ? 'flex' : 'none';
+  if (mode === 1 && !fileTree.length) loadFileTree();
+}
+
+// Zephyr base URL loaded from server config
+let zephyrBaseUrl = '';
+let githubRepo = '', githubBranch = '';
+fetch('/api/client-config').then(r => r.json()).then(c => { zephyrBaseUrl = c.zephyrBaseUrl || ''; githubRepo = c.githubRepo || ''; githubBranch = c.githubBranch || ''; }).catch(() => {});
+
+function zephyrKeyLink(key) {
+  if (!key) return '';
+  if (!zephyrBaseUrl) return escHtml(key);
+  return `<a href="${escHtml(zephyrBaseUrl)}/secure/Tests.jspa#/testCase/${escHtml(key)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline">${escHtml(key)}</a>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODE 3 — OD Run Results
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.getElementById('od3-load-btn').addEventListener('click', loadOd3Jobs);
+document.getElementById('od3-keywords').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadOd3Jobs();
+});
+document.getElementById('od3-keywords').addEventListener('input', od3FilterBatches);
+
+async function loadOd3Jobs() {
+  const jobsList = document.getElementById('od3-jobs-list');
+
+  jobsList.innerHTML = '<div style="padding:12px;color:#666;font-size:12px;"><span class="spinner"></span> Loading batches…</div>';
+  document.getElementById('od3-detail-header').style.display  = 'none';
+  document.getElementById('od3-results-list').innerHTML       = '';
+  document.getElementById('od3-placeholder').style.display    = 'block';
+  const _sn = document.getElementById('od3-suite-skipped-notice');
+  if (_sn) _sn.style.display = 'none';
+
+  try {
+    const data = await api('GET', '/api/od/batches');
+    renderOd3Batches(data.batches);
+  } catch (err) {
+    jobsList.innerHTML = `<div style="padding:12px;color:#f07070;font-size:12px;">⚠ ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderOd3Batches(batches) {
+  const jobsList = document.getElementById('od3-jobs-list');
+  if (!batches || !batches.length) {
+    jobsList.innerHTML = '<div style="padding:12px;color:#666;font-size:12px;">No batches found.</div>';
+    return;
+  }
+  jobsList.innerHTML = '';
+  const kw = document.getElementById('od3-keywords').value.trim().toLowerCase();
+  batches.forEach(batch => {
+    const group = document.createElement('div');
+    group.className = 'od3-batch-group';
+    group.dataset.batchName  = batch.batchName;
+    group.dataset.batchLabel = batch.batchLabel.toLowerCase();
+    if (kw && !batch.batchLabel.toLowerCase().includes(kw)) group.style.display = 'none';
+
+    const header = document.createElement('div');
+    header.className = 'od3-batch-header';
+    header.innerHTML =
+      `<span class="od3-batch-toggle">▶</span>` +
+      `<span class="od3-batch-title" title="${escHtml(batch.batchLabel)}">${escHtml(batch.date)}&nbsp;&nbsp;${escHtml(batch.title)}</span>`;
+
+    const runsContainer = document.createElement('div');
+    runsContainer.className = 'od3-batch-runs';
+
+    header.addEventListener('click', () => toggleBatchGroup(group, header, runsContainer, batch.batchName));
+
+    group.appendChild(header);
+    group.appendChild(runsContainer);
+    jobsList.appendChild(group);
+  });
+}
+
+async function toggleBatchGroup(group, header, runsContainer, batchName) {
+  const isOpen = header.classList.contains('open');
+  if (isOpen) {
+    header.classList.remove('open');
+    runsContainer.classList.remove('open');
+    return;
+  }
+  header.classList.add('open');
+  runsContainer.classList.add('open');
+
+  if (runsContainer.dataset.loaded === 'true') return;
+
+  runsContainer.innerHTML = '<div style="padding:8px 20px;color:#666;font-size:11px;"><span class="spinner"></span> Loading runs…</div>';
+
+  try {
+    const data = await api('GET', `/api/od/batch-runs?batchName=${encodeURIComponent(batchName)}`);
+    runsContainer.innerHTML = '';
+    runsContainer.dataset.loaded = 'true';
+    if (!data.runs || !data.runs.length) {
+      runsContainer.innerHTML = '<div style="padding:8px 20px;color:#666;font-size:11px;">No runs in this batch.</div>';
+      return;
+    }
+    const kw = document.getElementById('od3-keywords').value.trim().toLowerCase();
+    data.runs.forEach(job => {
+      const row = document.createElement('div');
+      row.className = 'od3-job-row';
+      row.dataset.jobId     = job.id;
+      row.dataset.suiteName = (job.suiteName || '').toLowerCase();
+      const percClass = job.status === 'failed' ? 'od3-perc-fail' : 'od3-perc-pass';
+      row.innerHTML =
+        `<div class="od3-job-name" title="${escHtml(job.suiteName)}">${escHtml(job.suiteName)}</div>` +
+        `<div class="od3-job-meta">` +
+          `<span>${escHtml(job.date)}${job.env ? ' · ' + escHtml(job.env) : ''}</span>` +
+          `<span class="${percClass}">${escHtml(job.passPerc)}</span>` +
+        `</div>` +
+        (job.system ? `<div class="od3-job-system">${escHtml(job.system)}</div>` : '');
+      const batchLabel = group.dataset.batchLabel || '';
+      if (kw && !job.suiteName.toLowerCase().includes(kw) && !batchLabel.includes(kw)) row.style.display = 'none';
+      row.addEventListener('click', () => selectOd3Job(job));
+      runsContainer.appendChild(row);
+    });
+  } catch (err) {
+    runsContainer.innerHTML = `<div style="padding:8px 20px;color:#f07070;font-size:11px;">⚠ ${escHtml(err.message)}</div>`;
+  }
+}
+
+function od3FilterBatches() {
+  const kw = document.getElementById('od3-keywords').value.trim().toLowerCase();
+  document.querySelectorAll('.od3-batch-group').forEach(group => {
+    const batchLabel = group.dataset.batchLabel || '';
+    let batchVisible = !kw || batchLabel.includes(kw);
+    const runRows = group.querySelectorAll('.od3-job-row');
+    runRows.forEach(row => {
+      const suiteName = row.dataset.suiteName || '';
+      const runMatch  = !kw || suiteName.includes(kw) || batchLabel.includes(kw);
+      row.style.display = runMatch ? '' : 'none';
+      if (!kw || suiteName.includes(kw)) batchVisible = true;
+    });
+    group.style.display = batchVisible ? '' : 'none';
+  });
+}
+
+let od3SelectedJob     = null;
+let od3CurrentResults  = [];
+
+async function selectOd3Job(job) {
+  od3SelectedJob = job;
+  document.querySelectorAll('.od3-job-row').forEach(r => r.classList.remove('selected'));
+  const rowEl = document.querySelector(`.od3-job-row[data-job-id="${job.id}"]`);
+  if (rowEl) rowEl.classList.add('selected');
+
+  document.getElementById('od3-placeholder').style.display = 'none';
+  document.getElementById('od3-results-filter').value      = '';
+  const hdr  = document.getElementById('od3-detail-header');
+  const list = document.getElementById('od3-results-list');
+  document.getElementById('od3-suite-name').textContent = job.suiteName;
+  document.getElementById('od3-stats').textContent      = '';
+  hdr.style.display  = 'flex';
+  list.innerHTML     = '<div style="padding:8px;color:#666;font-size:11px;"><span class="spinner"></span> Loading…</div>';
+
+  try {
+    const data = await api('GET', `/api/od/results?runId=${job.id}`);
+    od3CurrentResults = data.results;
+    const s = data.stats;
+    const skippedCount = data.results.filter(r => r.result === 'skipped').length;
+    const statsExtra   = skippedCount > 0 ? `  ⏩${skippedCount} skipped` : '';
+    document.getElementById('od3-stats').textContent = `${s.total} total  ✅${s.passed}  ❌${s.failed}${statsExtra}`;
+    const auditAllBtn = document.getElementById('od3-audit-all-btn');
+    auditAllBtn.style.display = s.failed > 0 ? 'inline-block' : 'none';
+    // Show a contextual notice when the suite ran but every test was skipped
+    const suiteSkippedNotice = document.getElementById('od3-suite-skipped-notice');
+    if (suiteSkippedNotice) {
+      suiteSkippedNotice.style.display = (s.failed === 0 && skippedCount > 0 && skippedCount === s.total) ? 'block' : 'none';
+    }
+    renderOd3Results(od3CurrentResults, '');
+  } catch (err) {
+    list.innerHTML = `<div style="padding:8px;color:#f07070;font-size:11px;">⚠ ${escHtml(err.message)}</div>`;
+  }
+}
+
+document.getElementById('od3-results-filter').addEventListener('input', e => {
+  renderOd3Results(od3CurrentResults, e.target.value.trim().toLowerCase());
+});
+
+function highlightMatch(text, query) {
+  if (!query) return escHtml(text);
+  const idx = text.toLowerCase().indexOf(query);
+  if (idx === -1) return escHtml(text);
+  return escHtml(text.slice(0, idx))
+    + `<mark>${escHtml(text.slice(idx, idx + query.length))}</mark>`
+    + escHtml(text.slice(idx + query.length));
+}
+
+function renderOd3Results(results, filter) {
+  const list = document.getElementById('od3-results-list');
+  list.innerHTML = '';
+  const shown = filter
+    ? results.filter(r => r.name.toLowerCase().includes(filter))
+    : results;
+  if (!shown.length) {
+    list.innerHTML = filter
+      ? `<div style="padding:8px;color:#666;font-size:11px;">No results matching "${escHtml(filter)}".</div>`
+      : '<div style="padding:8px;color:#666;font-size:11px;">No results.</div>';
+    return;
+  }
+  // Show count when filtering
+  if (filter) {
+    const passCount    = shown.filter(r => r.result === 'passed').length;
+    const failCount    = shown.filter(r => r.result === 'failed').length;
+    const skipCount    = shown.filter(r => r.result === 'skipped').length;
+    const skipStr      = skipCount > 0 ? `  ⏩ ${skipCount} skipped` : '';
+    const summary      = document.createElement('div');
+    summary.style.cssText = 'padding:5px 14px;font-size:10px;color:#888;border-bottom:1px solid #2a2a2a;background:#252526;';
+    summary.textContent   = `${shown.length} match${shown.length !== 1 ? 'es' : ''} — ✅ ${passCount} passed  ❌ ${failCount} failed${skipStr}`;
+    list.appendChild(summary);
+  }
+  shown.forEach(r => {
+    const isClickable = r.result === 'failed' && r.resultId;
+    const row = document.createElement('div');
+    row.className = `od3-result-row${isClickable ? ' clickable' : ''}`;
+    const icon      = r.result === 'failed' ? '❌' : r.result === 'passed' ? '✅' : '⏩';
+    const shortName = r.name.replace(/\s*\(ID:\s*\d+\)\s*$/, '');
+    row.innerHTML =
+      `<span class="od3-r-icon">${icon}</span>` +
+      `<span class="od3-r-name" title="${escHtml(r.name)}">${highlightMatch(shortName, filter)}</span>` +
+      `<span class="od3-r-dur">${escHtml(r.duration)}</span>`;
+    if (isClickable) {
+      row.title = 'Click to audit in Mode 1';
+      row.addEventListener('click', () => {
+        selectMode(1);
+        loadOdFailAnalysis(r);
+      });
+    }
+    list.appendChild(row);
+  });
+}
+
+// ─── OD Fail Analysis (Mode-1 3-pane, called from Mode-3) ────────────────────
+
+async function loadOdFailAnalysis(result) {
+  const shortName = result.name.replace(/\s*\(ID:\s*\d+\)\s*$/, '');
+  setLoading(`Fetching OD details: ${shortName}…`);
+
+  try {
+    const detail = await api('GET', `/api/od/faildetail?resultId=${result.resultId}`);
+    activeOdDetail = detail;
+
+    if (!detail.jiraId) {
+      showError(`No Jira ticket found in OD result for "${shortName}".<br><small>webClass: ${escHtml(detail.webClass || 'unknown')}</small>`);
+      return;
+    }
+
+    // Find the Java file by matching the last part of webClass (class name)
+    const webClassBase = detail.webClass ? detail.webClass.split('.').pop() : '';
+    let javaFile = null;
+    if (webClassBase) {
+      // Lazily load the file tree if it hasn't been fetched yet (e.g. launched from Mode 3)
+      if (fileTree.length === 0) {
+        setLoading('Loading Java file tree…');
+        try {
+          const treeData = await api('GET', '/api/tree');
+          fileTree = treeData.tree;
+        } catch (_) { /* tree load failure — walk will return null */ }
+      }
+      function walk(nodes) {
+        for (const n of nodes) {
+          if (n.type === 'file' && n.filename.replace('.java', '').toLowerCase() === webClassBase.toLowerCase()) return n;
+          if (n.type === 'folder' && n.children) { const f = walk(n.children); if (f) return f; }
+        }
+        return null;
+      }
+      javaFile = walk(fileTree);
+    }
+
+    let javaSource   = '// Java file not found in file tree';
+    let javaFilename = detail.webClass || 'unknown';
+    if (javaFile) {
+      setLoading(`Fetching Java: ${javaFile.filename}…`);
+      const fileData = await api('GET', `/api/file?path=${encodeURIComponent(javaFile.path)}`);
+      javaSource   = fileData.source;
+      javaFilename = fileData.filename;
+    }
+
+    setLoading('Running LLM audit…');
+    const auditResult = await api('POST', '/api/audit', {
+      source:    javaSource,
+      ticketKey: detail.jiraId,
+      filename:  javaFilename,
+    });
+
+    auditReport = auditResult.report;
+    // Update Mode 1 heading and back button to reflect OD context
+    const mode1Title = document.querySelector('#mode-1 h1');
+    if (mode1Title) mode1Title.textContent = '☕ OD Run Audit';
+    const backBtn = document.getElementById('mode1-back-btn');
+    if (backBtn) { backBtn.textContent = '← Run Results'; backBtn._fromOdRun = true; }
+    currentGithubUrl = (githubRepo && githubBranch && javaFile && javaFile.path)
+      ? `https://github.com/${githubRepo}/blob/${githubBranch}/${javaFile.path}` : '';
+    renderAuditView(auditResult.report, javaFilename, detail);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OD RUN AUDIT — Audit all failures in a run, export as Confluence HTML
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let odRunAuditAbort   = null;
+let odRunAuditResults = [];
+let odRunAuditJobName = '';
+
+document.getElementById('od3-audit-all-btn').addEventListener('click', startOdRunAudit);
+document.getElementById('ora-close-btn').addEventListener('click', closeOdRunAuditPanel);
+document.getElementById('ora-export-btn').addEventListener('click', exportOdRunAuditHtml);
+
+function closeOdRunAuditPanel() {
+  if (odRunAuditAbort) { odRunAuditAbort(); odRunAuditAbort = null; }
+  document.getElementById('od-run-audit-panel').classList.remove('open');
+  if (odRunAuditResults.length > 0) {
+    document.getElementById('ora-recall-bar').style.display = 'flex';
+  }
+}
+
+document.getElementById('ora-recall-btn').addEventListener('click', () => {
+  document.getElementById('ora-recall-bar').style.display = 'none';
+  document.getElementById('od-run-audit-panel').classList.add('open');
+});
+
+async function startOdRunAudit() {
+  if (!od3SelectedJob) return;
+  if (odRunAuditAbort) { odRunAuditAbort(); odRunAuditAbort = null; }
+
+  const panel         = document.getElementById('od-run-audit-panel');
+  const progressFill  = document.getElementById('ora-progress-fill');
+  const progressLabel = document.getElementById('ora-progress-label');
+  const resultsEl     = document.getElementById('ora-results');
+  const summaryEl     = document.getElementById('ora-summary');
+  const exportBtn     = document.getElementById('ora-export-btn');
+
+  odRunAuditResults = [];
+  odRunAuditJobName = od3SelectedJob.suiteName;
+  odRunAuditAnalysis = null;
+  document.getElementById('ora-recall-bar').style.display = 'none';
+  document.getElementById('ora-title').textContent = od3SelectedJob.suiteName;
+  const analysisEl = document.getElementById('ora-analysis');
+  analysisEl.className = 'ora-analysis';
+  analysisEl.innerHTML = '';
+  progressFill.style.width  = '0%';
+  progressLabel.textContent = 'Starting…';
+  resultsEl.innerHTML       = '';
+  summaryEl.style.display   = 'none';
+  exportBtn.style.display   = 'none';
+  panel.classList.add('open');
+
+  const es = new EventSource(`/api/od/audit-all?runId=${od3SelectedJob.id}`);
+  odRunAuditAbort = () => es.close();
+
+  es.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.type === 'start') {
+      progressLabel.textContent = `0 / ${d.total} — starting…`;
+    } else if (d.type === 'progress') {
+      progressFill.style.width  = `${Math.round(d.done / d.total * 100)}%`;
+      progressLabel.textContent = `${d.done} / ${d.total} — ${d.name}`;
+    } else if (d.type === 'result') {
+      odRunAuditResults.push(d);
+      renderOraCard(d, resultsEl);
+    } else if (d.type === 'done') {
+      progressFill.style.width  = '100%';
+      progressLabel.textContent = `Complete — ${d.total} failure${d.total !== 1 ? 's' : ''} audited  ·  Analysing patterns…`;
+      renderOraSummary(odRunAuditResults, summaryEl);
+      exportBtn.style.display = 'inline-block';
+      odRunAuditAbort = null;
+      es.close();
+      runOraAnalysis(odRunAuditResults, odRunAuditJobName, od3CurrentResults);
+    } else if (d.type === 'fatal') {
+      progressLabel.textContent = `⚠ Error: ${d.message}`;
+      odRunAuditAbort = null;
+      es.close();
+    }
+  };
+  es.onerror = () => {
+    if (odRunAuditAbort) progressLabel.textContent = 'Connection lost';
+    odRunAuditAbort = null;
+    es.close();
+  };
+}
+
+function renderOraCard(d, container) {
+  const card = document.createElement('div');
+  card.className = 'ora-card';
+
+  if (d.error) {
+    card.innerHTML =
+      `<div class="ora-card-header">` +
+        `<span class="ora-card-icon">⚠</span>` +
+        `<span class="ora-card-name" title="${escHtml(d.name)}">${escHtml(d.name)}</span>` +
+        `<span class="ora-cov-pill ora-cov-na">Error</span>` +
+      `</div>` +
+      `<div class="ora-card-error">${escHtml(d.error)}</div>`;
+    container.appendChild(card);
+    return;
+  }
+
+  const covClass = d.coverage === null  ? 'ora-cov-na'
+    : d.coverage === 100 ? 'ora-cov-100'
+    : d.coverage === 0   ? 'ora-cov-none'
+    : 'ora-cov-part';
+  const covText  = d.coverage === null  ? 'No Java'
+    : `${d.coverage}% (${d.matchedSteps}/${d.totalSteps})`;
+  const icon     = d.coverage === 100 ? '✅' : d.coverage === null ? '❓' : '❌';
+  const jiraHtml = d.jiraId
+    ? `<a href="${escHtml(d.jiraUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(d.jiraId)}</a>`
+    : '—';
+
+  card.innerHTML =
+    `<div class="ora-card-header">` +
+      `<span class="ora-card-icon">${icon}</span>` +
+      `<span class="ora-card-name" title="${escHtml(d.name)}">${escHtml(d.name)}</span>` +
+      `<span class="ora-card-jira">${jiraHtml}</span>` +
+      (d.githubUrl ? `<span class="ora-card-github"><a href="${escHtml(d.githubUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${escHtml(d.webClass)}">⌥ Java</a></span>` : '') +
+      `<span class="ora-cov-pill ${covClass}">${covText}</span>` +
+      `<span class="ora-card-chevron">▶</span>` +
+    `</div>` +
+    `<div class="ora-card-body">` +
+      (d.failReason   ? `<div class="ora-detail-row"><span class="ora-detail-label">Fail Reason</span><span class="ora-detail-val fail">${escHtml(d.failReason)}</span></div>` : '') +
+      (d.failedOdStep ? `<div class="ora-detail-row"><span class="ora-detail-label">Failed Step</span><span class="ora-detail-val">${escHtml(d.failedOdStep)}</span></div>` : '') +
+      (d.unmatchedSteps && d.unmatchedSteps.length
+        ? `<div class="ora-detail-row"><span class="ora-detail-label">Unmatched</span><span class="ora-detail-val"><ul class="ora-unmatched-list">${d.unmatchedSteps.map(s => `<li>${escHtml(s)}</li>`).join('')}</ul></span></div>`
+        : '') +
+      (d.noJava ? `<div class="ora-detail-row"><span class="ora-detail-label">Note</span><span class="ora-detail-val" style="color:#888">Java file not found for this test class.</span></div>` : '') +
+      (d.noJira ? `<div class="ora-detail-row"><span class="ora-detail-label">Note</span><span class="ora-detail-val" style="color:#888">No Jira ticket found in OD fail detail.</span></div>` : '') +
+    `</div>`;
+
+  card.querySelector('.ora-card-header').addEventListener('click', () => card.classList.toggle('open'));
+  container.appendChild(card);
+}
+
+let odRunAuditAnalysis = null;
+
+const VERDICT_LABELS = {
+  environment: 'Environment Issue',
+  config:      'Config / Precondition',
+  regression:  'Regression',
+  flaky:       'Flaky / Intermittent',
+  timeout:     'Possible Timeout',
+  mixed:       'Mixed Causes',
+};
+
+async function runOraAnalysis(results, suiteName, allResults) {
+  const el = document.getElementById('ora-analysis');
+  const progressLabel = document.getElementById('ora-progress-label');
+  el.innerHTML = '<div class="ora-analysis-thinking"><span class="spinner"></span> Analysing failure patterns…</div>';
+  el.classList.add('visible');
+  try {
+    const analysis = await api('POST', '/api/od/analyze-failures', { suiteName, results, allResults });
+    odRunAuditAnalysis = analysis;
+    renderOraAnalysis(analysis, el);
+    progressLabel.textContent = progressLabel.textContent.replace('  ·  Analysing patterns…', '');
+  } catch (err) {
+    el.innerHTML = `<div style="font-size:11px;color:#f07070;">⚠ Analysis failed: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderOraAnalysis(analysis, el) {
+  const verdictClass = `ora-verdict-${analysis.verdict || 'mixed'}`;
+  const verdictLabel = VERDICT_LABELS[analysis.verdict] || analysis.verdict || 'Unknown';
+  let html =
+    `<div class="ora-analysis-headline">` +
+      escHtml(analysis.headline || '') +
+      `<span class="ora-analysis-verdict ${verdictClass}">${escHtml(verdictLabel)}</span>` +
+    `</div>`;
+  for (const p of (analysis.patterns || [])) {
+    html +=
+      `<div class="ora-pattern">` +
+        `<div class="ora-pattern-title">${escHtml(p.title)}` +
+          (p.affectedCount ? ` <span style="font-weight:400;color:#8888aa;">(${p.affectedCount} test${p.affectedCount !== 1 ? 's' : ''})</span>` : '') +
+        `</div>` +
+        `<div class="ora-pattern-desc">${escHtml(p.description)}</div>` +
+        (p.suggestion ? `<div class="ora-pattern-sugg">${escHtml(p.suggestion)}</div>` : '') +
+      `</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderOraSummary(results, el) {
+  const total      = results.length;
+  const covered100 = results.filter(r => r.coverage === 100).length;
+  const partial    = results.filter(r => r.coverage !== null && r.coverage > 0 && r.coverage < 100).length;
+  const uncovered  = results.filter(r => r.coverage === 0).length;
+  const noJava     = results.filter(r => r.coverage === null && !r.error).length;
+  el.innerHTML =
+    `<span>❌ <strong>${total}</strong> failures</span>` +
+    `<span style="color:#4ec94e">✅ <strong>${covered100}</strong> fully covered</span>` +
+    `<span style="color:#f0c040">⚠ <strong>${partial}</strong> partial</span>` +
+    `<span style="color:#e05050">🔴 <strong>${uncovered}</strong> uncovered</span>` +
+    (noJava ? `<span style="color:#999">❓ <strong>${noJava}</strong> no java</span>` : '');
+  el.style.display = 'flex';
+}
+
+function exportOdRunAuditHtml() {
+  const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const total     = odRunAuditResults.length;
+  const covered   = odRunAuditResults.filter(r => r.coverage === 100).length;
+  const partial   = odRunAuditResults.filter(r => r.coverage !== null && r.coverage > 0 && r.coverage < 100).length;
+  const uncovered = odRunAuditResults.filter(r => r.coverage === 0).length;
+  const noJava    = odRunAuditResults.filter(r => r.coverage === null && !r.error).length;
+
+  const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const rows = odRunAuditResults.map(r => {
+    const bg = r.error       ? '#fff8f0'
+      : r.coverage === 100   ? '#f2fff2'
+      : r.coverage === null  ? '#fafafa'
+      : r.coverage === 0     ? '#fff2f2'
+      : '#fffef0';
+    const covCell = r.error
+      ? `<em style="color:#c00">⚠ ${esc(r.error)}</em>`
+      : r.coverage === null
+        ? '<em style="color:#999">No Java file</em>'
+        : `${r.coverage}%&nbsp;<span style="color:#999;font-size:10px;">(${r.matchedSteps}/${r.totalSteps} steps)</span>`;
+    const jiraCell = r.jiraId
+      ? `<a href="${esc(r.jiraUrl)}">${esc(r.jiraId)}</a>`
+      : '—';
+    const unmatchedHtml = (r.unmatchedSteps || []).length
+      ? `<ul style="margin:2px 0;padding-left:14px;font-size:11px;">${(r.unmatchedSteps || []).map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+      : '<span style="color:#999">—</span>';
+    return `<tr style="background:${bg}">
+      <td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;">${esc(r.name)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;white-space:nowrap;">${jiraCell}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;white-space:nowrap;">${covCell}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;">${esc(r.failedOdStep || '—')}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;color:#c00;">${esc(r.failReason || '—')}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;">${unmatchedHtml}</td>
+    </tr>`;
+  }).join('\n');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<title>OD Run Audit: ${esc(odRunAuditJobName)}</title>
+</head>
+<body style="font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#333;max-width:1300px;margin:24px auto;padding:0 20px;">
+<h2 style="color:#1a1a1a;border-bottom:3px solid #c04040;padding-bottom:8px;margin-bottom:12px;">
+  🔍 OD Run Audit Report</h2>
+<p style="color:#555;font-size:12px;margin-bottom:10px;">
+  <strong>Suite:</strong> ${esc(odRunAuditJobName)} &nbsp;·&nbsp;
+  <strong>Date:</strong> ${dateStr} &nbsp;·&nbsp;
+  <strong>Failures audited:</strong> ${total}
+</p>
+${(() => {
+  if (!odRunAuditAnalysis) return '';
+  const a = odRunAuditAnalysis;
+  const vColours = { environment:'#6030a0', config:'#7a5c00', regression:'#8b1a1a', flaky:'#1a4a7a', mixed:'#444' };
+  const vBorders = { environment:'#c0a0e0', config:'#d4b84a', regression:'#e0a0a0', flaky:'#90b8e0', mixed:'#bbb' };
+  const vBg      = { environment:'#faf5ff', config:'#fffdf0', regression:'#fff8f8', flaky:'#f5faff', mixed:'#fafafa' };
+  const vLabel   = VERDICT_LABELS[a.verdict] || a.verdict || 'Unknown';
+  const pHtml    = (a.patterns || []).map(p =>
+    `<div style="background:#fff;border:1px solid #dde;border-left:4px solid #4060c0;border-radius:4px;padding:12px 14px;margin-bottom:8px;">` +
+      `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">` +
+        `<span style="font-size:13px;font-weight:700;color:#1a2a6a;">${esc(p.title)}</span>` +
+        (p.affectedCount ? `<span style="font-size:11px;color:#888;font-weight:400;">${p.affectedCount} test${p.affectedCount !== 1 ? 's' : ''}</span>` : '') +
+      `</div>` +
+      `<p style="font-size:13px;color:#333;margin:0 0 8px;line-height:1.6;">${esc(p.description)}</p>` +
+      (p.suggestion ? `<div style="font-size:12px;color:#7a5c00;background:#fffbe6;border:1px solid #e8d87a;border-radius:3px;padding:6px 10px;line-height:1.5;">💡 ${esc(p.suggestion)}</div>` : '') +
+    `</div>`
+  ).join('');
+  return `<div style="background:${vBg[a.verdict]||'#fafafa'};border:1px solid ${vBorders[a.verdict]||'#ccc'};border-top:4px solid ${vColours[a.verdict]||'#555'};border-radius:5px;padding:16px 18px;margin-bottom:18px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:12px;background:${vColours[a.verdict]||'#555'};color:#fff;flex-shrink:0;">${esc(vLabel)}</span>
+    <span style="font-size:14px;font-weight:700;color:#1a1a1a;line-height:1.4;">${esc(a.headline||'')}</span>
+  </div>
+  ${pHtml}
+</div>`;
+})()}
+<table style="border-collapse:collapse;width:100%;margin-bottom:14px;">
+  <tr>
+    <td style="padding:8px 14px;background:#f2fff2;border:1px solid #c0dfc0;font-size:12px;border-radius:3px;">✅ <strong>${covered}</strong> fully automated</td>
+    <td style="padding:8px 14px;background:#fffef0;border:1px solid #e0d080;font-size:12px;border-radius:3px;">⚠ <strong>${partial}</strong> partial coverage</td>
+    <td style="padding:8px 14px;background:#fff2f2;border:1px solid #e0b0b0;font-size:12px;border-radius:3px;">🔴 <strong>${uncovered}</strong> no automation</td>
+    ${noJava ? `<td style="padding:8px 14px;background:#fafafa;border:1px solid #ddd;font-size:12px;border-radius:3px;">❓ <strong>${noJava}</strong> no java file</td>` : ''}
+  </tr>
+</table>
+<table style="width:100%;border-collapse:collapse;">
+  <thead>
+    <tr style="background:#2d2d2d;color:#fff;">
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Test Name</th>
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Jira</th>
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Coverage</th>
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Failed OD Step</th>
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Fail Reason</th>
+      <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Uncovered Zephyr Steps</th>
+    </tr>
+  </thead>
+  <tbody>
+${rows}
+  </tbody>
+</table>
+<p style="font-size:10px;color:#aaa;margin-top:16px;">Generated by OD Auditor — ${dateStr}</p>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `od-run-audit-${odRunAuditJobName.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 60)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Find matching OD step for a Zephyr step ─────────────────────────────────
+function findOdSteps(odSteps, zephyrStep, blocks) {
+  if (!odSteps || !odSteps.length) return [];
+  const normalize = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  const found = [];
+  const usedIdx = new Set();
+
+  // Primary: match by Java block report text — the REPORT() string is identical
+  // to what gets logged in the OD step details, so this is always exact.
+  if (blocks && blocks.length) {
+    for (const block of blocks) {
+      const bText = normalize(block.report);
+      if (!bText) continue;
+      for (let i = 0; i < odSteps.length; i++) {
+        if (usedIdx.has(i)) continue;
+        const oText = normalize(odSteps[i].text);
+        if (oText === bText || oText.includes(bText.slice(0, 40)) || bText.includes(oText.slice(0, 40))) {
+          found.push(odSteps[i]);
+          usedIdx.add(i);
+          break;
+        }
+      }
+    }
+  }
+
+  // Secondary: match by Zephyr automationStep text — OD step logs often use the automation step
+  // description verbatim, not the Java REPORT() string. Runs unconditionally so steps where the
+  // primary found one block-match can still pick up a second OD step (e.g. state + sensor checks).
+  if (zephyrStep.automationStep) {
+    const zAutoText = normalize(zephyrStep.automationStep);
+    for (let i = 0; i < odSteps.length; i++) {
+      if (usedIdx.has(i)) continue;
+      const oText = normalize(odSteps[i].text);
+      if (oText === zAutoText || oText.includes(zAutoText.slice(0, 40)) || zAutoText.includes(oText.slice(0, 40))) {
+        found.push(odSteps[i]);
+        usedIdx.add(i);
+        break;
+      }
+    }
+  }
+
+  // Fallback: match by Zephyr step description (no positional fallback — wrong for @BeforeMethod tests)
+  if (found.length === 0) {
+    const zText = normalize(zephyrStep.description);
+    for (let i = 0; i < odSteps.length; i++) {
+      if (usedIdx.has(i)) continue;
+      const oText = normalize(odSteps[i].text);
+      if (oText === zText || oText.includes(zText.slice(0, 40)) || zText.includes(oText.slice(0, 40))) {
+        found.push(odSteps[i]);
+        break;
+      }
+    }
+  }
+
+  return found;
+}
+
+</script>
+</body>
+</html>

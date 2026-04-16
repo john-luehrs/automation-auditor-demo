@@ -1,0 +1,17 @@
+{
+  "comment": "",
+  "scenario": "Arm Away - Verify All Sensors Active",
+  "scenarioId": "10014",
+  "jiraId": "EX-T1001",
+  "webClass": "tests.panels.arming.ArmAwayGroupTest",
+  "result": "Failed",
+  "steps": [
+    { "text": "Assert panel state equals DISARMED", "result": "passed", "timestamp": "09:09:01", "duration": "1.2s" },
+    { "text": "Enter master code and press ARM AWAY button", "result": "passed", "timestamp": "09:09:02", "duration": "2.1s" },
+    { "text": "Assert exit delay is active and wait for completion", "result": "passed", "timestamp": "09:09:04", "duration": "32.0s" },
+    { "text": "Assert panel state equals ARMED_AWAY", "result": "passed", "timestamp": "09:09:36", "duration": "0.8s" },
+    { "text": "Assert all motion sensors are active", "result": "failed", "timestamp": "09:09:46", "duration": "10.0s" }
+  ],
+  "failMessage": "Timeout waiting for sensor status update: assertAllSensorsActive() exceeded 10s. Sensor 'demo-motion-03' status was UNKNOWN after 10000ms.",
+  "failReason": "Timeout waiting for sensor status update: assertAllSensorsActive() exceeded 10s. Sensor 'demo-motion-03' status was UNKNOWN after 10000ms.\n    at ArmAwayGroupTest.testArmAwayFromKeypad(ArmAwayGroupTest.java:32)\n    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)"
+}

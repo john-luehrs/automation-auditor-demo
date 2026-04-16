@@ -1,0 +1,17 @@
+{
+  "comment": "",
+  "scenario": "Arm Away - Remote Disarm From App",
+  "scenarioId": "10015",
+  "jiraId": "EX-T1001",
+  "webClass": "tests.panels.arming.ArmAwayGroupTest",
+  "result": "Failed",
+  "steps": [
+    { "text": "Assert panel state equals DISARMED", "result": "passed", "timestamp": "09:11:01", "duration": "1.1s" },
+    { "text": "Enter master code and press ARM AWAY button", "result": "passed", "timestamp": "09:11:02", "duration": "2.0s" },
+    { "text": "Assert exit delay is active and wait for completion", "result": "passed", "timestamp": "09:11:04", "duration": "32.0s" },
+    { "text": "Assert panel state equals ARMED_AWAY", "result": "passed", "timestamp": "09:11:36", "duration": "0.9s" },
+    { "text": "Send remote disarm command via app API", "result": "failed", "timestamp": "09:12:18", "duration": "42.0s" }
+  ],
+  "failMessage": "Connection timeout: remote disarm API call exceeded 30s. Service endpoint unreachable (demo-api.example.com:8443). This is likely a test infrastructure issue.",
+  "failReason": "Connection timeout: remote disarm API call exceeded 30s. Service endpoint unreachable (demo-api.example.com:8443). This is likely a test infrastructure issue.\n    at ArmAwayGroupTest.testArmAwayRemoteDisarm(ArmAwayGroupTest.java:58)\n    at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)"
+}

@@ -1,0 +1,25 @@
+{
+  "batches": [
+    {
+      "id": "301",
+      "batchName": "2026-04-15 09:00 Demo Sprint Batch",
+      "batchLabel": "2026-04-15 09:00 Demo Sprint Batch",
+      "date": "2026-04-15 09:00",
+      "title": "Demo Sprint Batch"
+    },
+    {
+      "id": "302",
+      "batchName": "2026-04-14 14:30 Regression Smoke",
+      "batchLabel": "2026-04-14 14:30 Regression Smoke",
+      "date": "2026-04-14 14:30",
+      "title": "Regression Smoke"
+    },
+    {
+      "id": "303",
+      "batchName": "2026-04-13 21:00 Nightly Full Suite",
+      "batchLabel": "2026-04-13 21:00 Nightly Full Suite",
+      "date": "2026-04-13 21:00",
+      "title": "Nightly Full Suite"
+    }
+  ]
+}
